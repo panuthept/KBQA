@@ -3,13 +3,18 @@ from kbqa.answer_generation_models.base_class import AnswerGenerationModel
 from kbqa.knowledge_retrieval_models.base_class import KnowledgeRetrievalModel
 
 
+class GeneratorConfig:
+    name: str
+    checkpoint_path: str
+
+
 class KBQA:
     def __init__(
             self, 
             answer_generation_name: str = "ChatGPT",
             answer_generation_checkpoint_path: str | None = None,
             answer_generation_model: AnswerGenerationModel | None = None,
-            knowledge_retrieval_name: str = "mE5", 
+            knowledge_retrieval_name: str = "Wikipedia_mE5", 
             knowledge_retriever_checkpoint_path: str | None = None,
             knowledge_retrieval_model: KnowledgeRetrievalModel | None = None
     ):
@@ -76,10 +81,9 @@ class KBQA:
         """
         pass
 
-    def load_knowledge_retriever(self, name: str = "mE5", checkpoint_path: str | None = None) -> KnowledgeRetrievalModel:
+    def load_knowledge_retriever(self, name: str = "Wikipedia_mE5", checkpoint_path: str | None = None) -> KnowledgeRetrievalModel:
         """
         INPUTS:
             retriever: KnowledgeRetrievalModel - a knowledge retrieval model
         """
         pass
-
