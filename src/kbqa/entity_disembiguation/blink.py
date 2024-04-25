@@ -36,8 +36,8 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
         self.crossencoder = CrossEncoderRanker(config)
         self.crossencoder.model.to(self.device)
         self.tokenizer = self.crossencoder.tokenizer
-        self.id2title = {entity_id: entity.name for entity_id, entity in entity_corpus.items()}
-        self.id2text = {entity_id: entity.desc for entity_id, entity in entity_corpus.items()}
+        self.id2title = {entity.id: entity.name for entity in entity_corpus.values()}
+        self.id2text = {entity.id: entity.desc for entity in entity_corpus.values()}
         self.entity_pad_id = entity_pad_id
 
     def _preprocess_docs(self, docs: List[Doc], is_training: bool = False):
@@ -55,9 +55,9 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
                     "context_left": context_left,
                     "context_right": context_right
                 })
-                labels.append(span.gold_entity.id)
-                nns.append([entity.id for entity in span.cand_entities])
                 sample2doc_index.append((i, j))
+                labels.append(span.gold_entity.id)
+                nns.append([entity.id if entity.id in self.id2title and entity.id in self.id2text else self.entity_pad_id for entity in span.cand_entities])
         
         context_input, candidate_input, label_input = prepare_crossencoder_data(
             self.tokenizer, 
@@ -296,7 +296,7 @@ if __name__ == "__main__":
     }
 
     config = json.load(open("crossencoder_wiki_large.json"))
-    blink_crossencoder = BlinkCrossEncoder(entity_corpus, config, checkpoint_path="crossencoder_wiki_large.bin")
+    blink_crossencoder = BlinkCrossEncoder(entity_corpus, config, checkpoint_path="crossencoder_wiki_large.bin", entity_pad_id="0")
     # blink_crossencoder = BlinkCrossEncoder(entity_corpus, config)
 
     train_docs = [
