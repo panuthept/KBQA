@@ -1,52 +1,42 @@
 from typing import Tuple, List, Any
 from abc import ABC, abstractmethod
 from kbqa.utils.data_types import Doc
-from torch.utils.data import DataLoader
-from kbqa.utils.metrics import EDMetrics
+from kbqa.utils.metrics import CGMetrics
 
 
-class EntityDisambiguationModel(ABC):
+class EntityCandidateGenerationModel(ABC):
     @abstractmethod
+    def __call__(self, docs: List[Doc]) -> List[Doc]:
+        """ 
+        A method used for inference 
+        """
+        pass
+
     def _process_inputs(self, docs: List[Doc]) -> Any:
         """ 
         A method used for processing docs into a format that can be used for self.forward() 
         """
         pass
 
-    @abstractmethod
     def forward(self, batch: Any) -> Tuple[Any, Any]:
         """ 
         A method used for computing predictions and losses
         """
         pass
 
-    @abstractmethod
-    def __call__(
-        self, 
-        docs: List[Doc], 
-        dataloader: DataLoader | None = None, 
-        batch_size: int = 1
-    ) -> List[Doc]:
-        """ 
-        A method used for inference 
-        """
-
-    def eval(self, docs: List[Doc], batch_size: int = 1) -> EDMetrics:
+    def eval(self, docs: List[Doc], k: int = 16, **kwargs) -> CGMetrics:
         """ 
         A method used for evaluation 
         """
-        docs = self.__call__(docs, batch_size=batch_size)
-        metrics = EDMetrics(docs)
-        metrics.summary()
+        docs = self.__call__(docs, **kwargs)
+        metrics = CGMetrics(docs)
+        metrics.summary(k)
         return metrics
 
-    @abstractmethod
     def train(
         self, 
         train_docs: List[Doc] | None = None, 
-        train_dataloader: DataLoader | None = None, 
         val_docs: List[Doc] | None = None, 
-        batch_size: int = 1
     ):
         """ 
         A method used for training 

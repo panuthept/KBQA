@@ -20,8 +20,8 @@ from pytorch_transformers.modeling_bert import (
 
 from pytorch_transformers.tokenization_bert import BertTokenizer
 
-from kbqa.ed.models.blink_utils.common.ranker_base import BertEncoder, get_model_obj
-from kbqa.ed.models.blink_utils.common.optimizer import get_bert_optimizer
+from kbqa.utils.blink_utils.common.ranker_base import BertEncoder, get_model_obj
+from kbqa.utils.blink_utils.common.optimizer import get_bert_optimizer
 
 
 def load_biencoder(params):

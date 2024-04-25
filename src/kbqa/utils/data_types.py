@@ -1,3 +1,4 @@
+from copy import deepcopy
 from dataclasses import dataclass
 
 
@@ -8,6 +9,7 @@ class Entity:
     aliases: list[str] | None = None
     desc: str | None = None
     type: str | None = None
+    score: float | None = None
 
     def __repr__(self) -> str:
         string = f"Entity(id={self.id}"
@@ -19,6 +21,8 @@ class Entity:
             string += f", desc={self.desc}"
         if self.type:
             string += f", type={self.type}"
+        if self.score:
+            string += f", score={round(self.score, 3)}"
         return string + ")"
 
 
@@ -29,8 +33,7 @@ class Span:
     surface_form: str
     gold_entity: Entity | None = None
     pred_entity: Entity | None = None
-    pred_score: float | None = None
-    cand_entities: list[Entity] | None = None
+    cand_entities: list[Entity] | None = None   # NOTE: the candidate entities must be sorted, otherwise the evaluation will be incorrect
 
 
 @dataclass

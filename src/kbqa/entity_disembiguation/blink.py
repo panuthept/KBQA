@@ -8,15 +8,15 @@ from torch import Tensor
 from copy import deepcopy
 from tqdm import tqdm, trange
 from kbqa.utils.metrics import EDMetrics
+from typing import Tuple, List, Dict, Any
 from kbqa.utils.data_types import Doc, Entity
-from typing import Tuple, Iterator, List, Dict, Any
-from kbqa.ed.models.blink_utils.candidate_ranking import utils
-from kbqa.ed.models.base_class import EntityDisambiguationModel
-from kbqa.ed.models.blink_utils.biencoder.biencoder import BiEncoderRanker
-from kbqa.ed.models.blink_utils.crossencoder.crossencoder import CrossEncoderRanker
+from kbqa.utils.blink_utils.candidate_ranking import utils
+from kbqa.utils.blink_utils.biencoder.biencoder import BiEncoderRanker
+from kbqa.entity_disembiguation.base_class import EntityDisambiguationModel
+from kbqa.utils.blink_utils.crossencoder.crossencoder import CrossEncoderRanker
+from kbqa.utils.blink_utils.crossencoder.data_process import prepare_crossencoder_data
 from torch.utils.data import DataLoader, SequentialSampler, RandomSampler, TensorDataset
-from kbqa.ed.models.blink_utils.crossencoder.data_process import prepare_crossencoder_data
-from kbqa.ed.models.blink_utils.crossencoder.train_cross import modify, get_optimizer, get_scheduler
+from kbqa.utils.blink_utils.crossencoder.train_cross import modify, get_optimizer, get_scheduler
 
 
 class BlinkCrossEncoder(EntityDisambiguationModel):
@@ -122,11 +122,11 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
             all_pred_scores.extend(pred_scores.cpu().numpy().tolist())
             all_pred_indices.extend(pred_indices.cpu().numpy().tolist())
         
-        output_docs = deepcopy(docs)
+        pred_docs = deepcopy(docs)
         for (doc_idx, span_idx), pred_score, pred_idx in zip(sample2doc_index, all_pred_scores, all_pred_indices):
-            output_docs[doc_idx].spans[span_idx].pred_entity = output_docs[doc_idx].spans[span_idx].cand_entities[pred_idx] if pred_score >= self.config["confident_threshold"] else self.entity_pad_id
-            output_docs[doc_idx].spans[span_idx].pred_score = pred_score
-        return output_docs
+            pred_entity = Entity(id=pred_docs[doc_idx].spans[span_idx].cand_entities[pred_idx].id, score=pred_score) if pred_score >= self.config["confident_threshold"] else Entity(id=self.entity_pad_id, score=pred_score)
+            pred_docs[doc_idx].spans[span_idx].pred_entity = pred_entity
+        return pred_docs
     
     def train(
             self, 
@@ -394,5 +394,5 @@ if __name__ == "__main__":
     print(pred_docs)
     # pred_docs = blink_crossencoder(train_docs)
     # print(pred_docs)
-    # blink_crossencoder.eval(test_docs)
+    blink_crossencoder.eval(test_docs)
     # blink_crossencoder.train(train_docs, val_docs=test_docs, batch_size=10)
