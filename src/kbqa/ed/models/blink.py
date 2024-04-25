@@ -40,8 +40,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
         self.id2text = {entity_id: entity.desc for entity_id, entity in entity_corpus.items()}
         self.entity_pad_id = entity_pad_id
 
-    @staticmethod
-    def _preprocess_docs(docs: List[Doc]):
+    def _preprocess_docs(self, docs: List[Doc], is_training: bool = False):
         samples = []
         labels = []
         nns = []
@@ -59,30 +58,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
                 labels.append(span.gold_entity.id)
                 nns.append([entity.id for entity in span.cand_entities])
                 sample2doc_index.append((i, j))
-        return samples, labels, nns, sample2doc_index
-
-    @staticmethod
-    def _process_crossencoder_dataloader(
-            context_input, 
-            label_input, 
-            batch_size: int = 1,
-            sampler_method: str = "sequential",
-    ):
-        assert sampler_method in ["sequential", "random"], "Invalid sampler method, must be either 'sequential' or 'random'"
-        tensor_data = TensorDataset(context_input, label_input)
-        sampler = SequentialSampler(tensor_data) if sampler_method == "sequential" else RandomSampler(tensor_data)
-        dataloader = DataLoader(
-            tensor_data, sampler=sampler, batch_size=batch_size
-        )
-        return dataloader
-    
-    def _process_inputs(
-            self, 
-            docs: List[Doc] | Iterator[Doc],
-            batch_size: int = 1,
-            is_training: bool = False,
-    ) -> Tuple[DataLoader, List[Tuple[int, int]]]:
-        samples, labels, nns, sample2doc_index = self._preprocess_docs(docs)
+        
         context_input, candidate_input, label_input = prepare_crossencoder_data(
             self.tokenizer, 
             samples, 
@@ -95,8 +71,19 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
         context_input = modify(
             context_input, candidate_input, self.config["max_seq_length"]
         )
-        dataloader = self._process_crossencoder_dataloader(
-            context_input, label_input, batch_size=batch_size, sampler_method="random" if is_training else "sequential"
+        tensor_data = TensorDataset(context_input, label_input)
+        return tensor_data, sample2doc_index
+    
+    def _process_inputs(
+            self, 
+            docs: List[Doc],
+            batch_size: int = 1,
+            is_training: bool = False,
+    ) -> Tuple[DataLoader, List[Tuple[int, int]]]:
+        tensor_data, sample2doc_index = self._preprocess_docs(docs, is_training=is_training)
+        sampler = SequentialSampler(tensor_data) if not is_training else RandomSampler(tensor_data)
+        dataloader = DataLoader(
+            tensor_data, sampler=sampler, batch_size=batch_size
         )
         return dataloader, sample2doc_index
     
@@ -116,18 +103,12 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
     
     def __call__(
             self, 
-            docs: List[Doc] | Iterator[Doc],
+            docs: List[Doc],
             dataloader: DataLoader | None = None,
             sample2doc_index: List[Tuple[int, int]] | None = None,
             batch_size: int = 1,
     ) -> List[Doc]:
         self.crossencoder.model.eval()
-
-        # Convert docs to list of it is an Iterator
-        if isinstance(docs, Iterator):
-            output_docs = deepcopy([doc for doc in docs])
-        else:
-            output_docs = deepcopy(docs)
 
         if dataloader is None and sample2doc_index is None:
             dataloader, sample2doc_index = self._process_inputs(docs, batch_size=batch_size, is_training=False)
@@ -141,6 +122,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
             all_pred_scores.extend(pred_scores.cpu().numpy().tolist())
             all_pred_indices.extend(pred_indices.cpu().numpy().tolist())
         
+        output_docs = deepcopy(docs)
         for (doc_idx, span_idx), pred_score, pred_idx in zip(sample2doc_index, all_pred_scores, all_pred_indices):
             output_docs[doc_idx].spans[span_idx].pred_entity = output_docs[doc_idx].spans[span_idx].cand_entities[pred_idx] if pred_score >= self.config["confident_threshold"] else self.entity_pad_id
             output_docs[doc_idx].spans[span_idx].pred_score = pred_score
@@ -148,11 +130,14 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
     
     def train(
             self, 
-            train_docs: List[Doc] | Iterator[Doc], 
+            train_docs: List[Doc] | None = None, 
+            train_dataloader: DataLoader | None = None,
             val_docs: List[Doc] | None = None, 
             batch_size: int = 1,
             model_output_path: str = "models/blink_crossencoder",
     ):
+        assert train_docs is not None or train_dataloader is not None, "Either train_docs or train_dataloader must be provided."
+
         if not os.path.exists(model_output_path):
             os.makedirs(model_output_path)
 
@@ -168,7 +153,8 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
             torch.cuda.manual_seed_all(seed)
 
         # Prepare training data
-        train_dataloader, _ = self._process_inputs(train_docs, batch_size=batch_size, is_training=True)
+        if train_dataloader is None:
+            train_dataloader, _ = self._process_inputs(train_docs, batch_size=batch_size, is_training=True)
 
         # Prepare validation data
         best_model_path = None
@@ -310,8 +296,8 @@ if __name__ == "__main__":
     }
 
     config = json.load(open("crossencoder_wiki_large.json"))
-    # blink_crossencoder = BlinkCrossEncoder(entity_corpus, config, checkpoint_path="crossencoder_wiki_large.bin")
-    blink_crossencoder = BlinkCrossEncoder(entity_corpus, config)
+    blink_crossencoder = BlinkCrossEncoder(entity_corpus, config, checkpoint_path="crossencoder_wiki_large.bin")
+    # blink_crossencoder = BlinkCrossEncoder(entity_corpus, config)
 
     train_docs = [
         Doc(
@@ -404,12 +390,7 @@ if __name__ == "__main__":
         )
     ]
 
-    def get_Iterator(docs: List[Doc]) -> Iterator[Doc]:
-        for doc in docs:
-            yield doc
-
-    iter_train_docs = get_Iterator(train_docs)
-    pred_docs = blink_crossencoder(iter_train_docs)
+    pred_docs = blink_crossencoder(train_docs)
     print(pred_docs)
     # pred_docs = blink_crossencoder(train_docs)
     # print(pred_docs)

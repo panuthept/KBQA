@@ -7,7 +7,7 @@
 import sys
 import pickle
 import subprocess
-import blink_utils.candidate_retrieval.dataset as D
+import kbqa.ed.models.blink_utils.candidate_retrieval.dataset as D
 
 import re
 import os

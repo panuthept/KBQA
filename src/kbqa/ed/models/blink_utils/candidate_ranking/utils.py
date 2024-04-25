@@ -17,8 +17,8 @@ from collections import OrderedDict
 from pytorch_transformers.modeling_utils import CONFIG_NAME, WEIGHTS_NAME
 from tqdm import tqdm
 
-from blink_utils.candidate_ranking.bert_reranking import BertReranker
-from blink_utils.biencoder.biencoder import BiEncoderRanker
+from kbqa.ed.models.blink_utils.candidate_ranking.bert_reranking import BertReranker
+from kbqa.ed.models.blink_utils.biencoder.biencoder import BiEncoderRanker
 
 
 def read_dataset(dataset_name, preprocessed_json_data_parent_folder, debug=False):

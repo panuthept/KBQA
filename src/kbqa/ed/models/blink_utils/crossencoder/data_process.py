@@ -9,8 +9,8 @@ import sys
 
 import numpy as np
 from tqdm import tqdm
-import blink_utils.biencoder.data_process as data
-from blink_utils.common.params import ENT_START_TAG, ENT_END_TAG
+import kbqa.ed.models.blink_utils.biencoder.data_process as data
+from kbqa.ed.models.blink_utils.common.params import ENT_START_TAG, ENT_END_TAG
 
 
 

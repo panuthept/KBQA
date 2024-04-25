@@ -28,9 +28,9 @@ from pytorch_transformers.modeling_roberta import (
 from pytorch_transformers.tokenization_bert import BertTokenizer
 from pytorch_transformers.tokenization_roberta import RobertaTokenizer
 
-from blink_utils.common.ranker_base import BertEncoder, get_model_obj
-from blink_utils.common.optimizer import get_bert_optimizer
-from blink_utils.common.params import ENT_START_TAG, ENT_END_TAG, ENT_TITLE_TAG
+from kbqa.ed.models.blink_utils.common.ranker_base import BertEncoder, get_model_obj
+from kbqa.ed.models.blink_utils.common.optimizer import get_bert_optimizer
+from kbqa.ed.models.blink_utils.common.params import ENT_START_TAG, ENT_END_TAG, ENT_TITLE_TAG
 
 
 def load_crossencoder(params):
