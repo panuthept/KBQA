@@ -3,6 +3,7 @@ from kbqa.utils.data_types import Doc
 
 
 class CGMetrics:
+    """ Evaluate Candidate Generator performance for spans with gold entities. """
     def __init__(self, docs: List[Doc]):
         self.docs = docs
 
@@ -17,15 +18,31 @@ class CGMetrics:
                         if span.gold_entity.id in set([entity.id for entity in span.cand_entities[:k]]):
                             hit_at_k += 1
         return hit_at_k / (num_spans + 1e-10)
+    
+    def get_mrr(self, k: int = 16):
+        mrrs = []
+        for doc in self.docs:
+            for span in doc.spans:
+                if span.gold_entity:
+                    if span.cand_entities:
+                        if span.gold_entity.id in set([entity.id for entity in span.cand_entities][:k]):
+                            hit_index = [entity.id for entity in span.cand_entities][:k].index(span.gold_entity.id)
+                            mrrs.append(1 / (hit_index + 1))
+                        else:
+                            mrrs.append(0)
+        return sum(mrrs) / (len(mrrs) + 1e-10)
 
     def summary(self, k: int = 16, logger=None):
         if logger:
-            logger.info(f" Micro Recall@{k}: {round(self.get_recall(k) * 100, 1)}")
+            logger.info(f" MRR@{k}: {round(self.get_mrr(k) * 100, 1)}")
+            logger.info(f" Recall@{k}: {round(self.get_recall(k) * 100, 1)}")
         else:
-            print(f"Micro Recall@{k}: {round(self.get_recall(k) * 100, 1)}")
+            print(f"MRR@{k}: {round(self.get_mrr(k) * 100, 1)}")
+            print(f"Recall@{k}: {round(self.get_recall(k) * 100, 1)}")
 
 
 class EDMetrics:
+    """ Evaluate Entity Disambiguation performance for spans with gold entities. """
     def __init__(self, docs: List[Doc]):
         self.tp = 0
         self.fp = 0
@@ -54,12 +71,12 @@ class EDMetrics:
 
     def summary(self, logger=None):
         if logger:
-            logger.info(f" Micro Accuracy: {round(self.get_accuracy() * 100, 1)}")
-            logger.info(f" Micro Precision: {round(self.get_precision() * 100, 1)}")
-            logger.info(f" Micro Recall: {round(self.get_recall() * 100, 1)}")
-            logger.info(f" Micro F1: {round(self.get_f1() * 100, 1)}")
+            logger.info(f" Accuracy: {round(self.get_accuracy() * 100, 1)}")
+            logger.info(f" Precision: {round(self.get_precision() * 100, 1)}")
+            logger.info(f" Recall: {round(self.get_recall() * 100, 1)}")
+            logger.info(f" F1: {round(self.get_f1() * 100, 1)}")
         else:
-            print(f"Micro Accuracy: {round(self.get_accuracy() * 100, 1)}")
-            print(f"Micro Precision: {round(self.get_precision() * 100, 1)}")
-            print(f"Micro Recall: {round(self.get_recall() * 100, 1)}")
-            print(f"Micro F1: {round(self.get_f1() * 100, 1)}")
+            print(f"Accuracy: {round(self.get_accuracy() * 100, 1)}")
+            print(f"Precision: {round(self.get_precision() * 100, 1)}")
+            print(f"Recall: {round(self.get_recall() * 100, 1)}")
+            print(f"F1: {round(self.get_f1() * 100, 1)}")

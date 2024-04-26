@@ -24,7 +24,7 @@ class EntityCandidateGenerationModel(ABC):
         """
         pass
 
-    def eval(self, docs: List[Doc], k: int = 16, **kwargs) -> CGMetrics:
+    def eval(self, docs: List[Doc], k: int = 30, **kwargs) -> CGMetrics:
         """ 
         A method used for evaluation 
         """

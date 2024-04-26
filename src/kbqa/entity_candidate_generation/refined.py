@@ -1,7 +1,10 @@
+import os
 from copy import deepcopy
 from unidecode import unidecode
+from typing import Tuple, Dict, List
 from kbqa.utils.data_types import Doc, Entity
-from typing import Mapping, Tuple, Dict, List, Set
+from kbqa.utils.refined_utils.loaders import load_human_qcode
+from kbqa.utils.refined_utils.lmdb_wrapper import LmdbImmutableDict
 from kbqa.entity_candidate_generation.base_class import EntityCandidateGenerationModel
 
 
@@ -31,15 +34,14 @@ def normalize_surface_form(surface_form: str, remove_the: bool = True):
 class ReFinEDCandidateGenerator(EntityCandidateGenerationModel):
     def __init__(
             self, 
-            pem: Mapping[str, List[Tuple[str, float]]], 
-            human_qcodes: Set[str],
+            path_to_model: str,
             entity_pad_id: str = "Q0",
             max_candidates: int = 30,
             person_coref_pem_cap: float = 0.80,
             person_coref_pem_min: float = 0.05,
     ):
-        self.pem = pem
-        self.human_qcodes = human_qcodes
+        self.pem = LmdbImmutableDict(os.path.join(path_to_model, "pem.lmdb"))
+        self.human_qcodes = load_human_qcode(os.path.join(path_to_model, "human_qcodes.json"))
         self.entity_pad_id = entity_pad_id
         self.max_candidates = max_candidates
         self.person_coref_pem_cap = person_coref_pem_cap
@@ -56,7 +58,7 @@ class ReFinEDCandidateGenerator(EntityCandidateGenerationModel):
                 cands = person_coreference[surface_form_norm]
                 cands = sorted(cands, key=lambda x: x[1], reverse=True)
                 cands = cands + [(self.entity_pad_id, 0.0)] * (self.max_candidates - len(cands))
-                return cands
+                return cands[:self.max_candidates]
             else:
                 return [(self.entity_pad_id, 0.0)] * self.max_candidates
             
@@ -85,7 +87,8 @@ class ReFinEDCandidateGenerator(EntityCandidateGenerationModel):
             )
         else:
             cands = sorted(direct_cands, key=lambda x: x[1], reverse=True)
-        return cands
+        cands = cands + [(self.entity_pad_id, 0.0)] * (self.max_candidates - len(cands))
+        return cands[:self.max_candidates]
 
     def __call__(
             self, 
@@ -103,21 +106,19 @@ class ReFinEDCandidateGenerator(EntityCandidateGenerationModel):
         for doc in pred_docs:
             for span in doc.spans:
                 cands = self.get_candidates(span.surface_form, person_coreference)
-                if include_gold_entity:
+                if include_gold_entity and span.gold_entity:
                     cand_ids = set(cand_id for cand_id, _ in cands)
-                    cands = cands + [(span.gold_entity.id, 0.0)] if span.gold_entity.id not in cand_ids else cands
+                    if span.gold_entity.id not in cand_ids:
+                        cands = cands[:-1] + [(span.gold_entity.id, 0.0)]
                 span.cand_entities = [Entity(id=cand_id, score=cand_score) for cand_id, cand_score in cands]
         return pred_docs
     
 
 if __name__ == "__main__":
     from kbqa.utils.data_types import Span
-    from kbqa.utils.refined_utils.loaders import load_human_qcode
-    from kbqa.utils.refined_utils.lmdb_wrapper import LmdbImmutableDict
 
-    pem = LmdbImmutableDict("./data/entity_candidate_generation/refined/pem.lmdb")
-    human_qcodes = load_human_qcode("./data/entity_candidate_generation/refined/human_qcodes.json")
-    candidate_generator = ReFinEDCandidateGenerator(pem, human_qcodes)
+
+    candidate_generator = ReFinEDCandidateGenerator(path_to_model="./data/entity_candidate_generation/refined")
 
     train_docs = [
         Doc(

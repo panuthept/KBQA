@@ -55,9 +55,10 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
                     "context_left": context_left,
                     "context_right": context_right
                 })
+                in_kb_cand_ids = [entity.id if entity.id in self.id2title and entity.id in self.id2text else self.entity_pad_id for entity in span.cand_entities]
                 sample2doc_index.append((i, j))
                 labels.append(span.gold_entity.id)
-                nns.append([entity.id if entity.id in self.id2title and entity.id in self.id2text else self.entity_pad_id for entity in span.cand_entities])
+                nns.append(in_kb_cand_ids)
         
         context_input, candidate_input, label_input = prepare_crossencoder_data(
             self.tokenizer, 
