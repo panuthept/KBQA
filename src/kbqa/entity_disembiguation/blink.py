@@ -260,6 +260,74 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
         self.config["path_to_model"] = best_model_path
 
 
+class BlinkCrossEncoderCFT(BlinkCrossEncoder):
+    def mask_context_input(self, context_input: Tensor):
+        context_input = context_input.clone()
+
+        start_indices = (context_input == 1).nonzero(as_tuple=True)[-1]
+        end_indices = (context_input == 2).nonzero(as_tuple=True)[-1]
+        for sample_idx, (start_idx, end_idx) in enumerate(zip(start_indices, end_indices)):
+            context_input[sample_idx, start_idx + 1:end_idx] = self.tokenizer.mask_token_id
+        return context_input
+
+    def _preprocess_docs(self, docs: List[Doc], is_training: bool = False):
+        samples = []
+        labels = []
+        nns = []
+        sample2doc_index = []
+        for i, doc in enumerate(docs):
+            for j, span in enumerate(doc.spans):
+                mention = doc.text[span.start:span.start + span.length]
+                context_left = doc.text[:span.start]
+                context_right = doc.text[span.start + span.length:]
+                samples.append({
+                    "mention": mention,
+                    "context_left": context_left,
+                    "context_right": context_right
+                })
+                in_kb_cand_ids = [entity.id if entity.id in self.id2title and entity.id in self.id2text else self.entity_pad_id for entity in span.cand_entities]
+                sample2doc_index.append((i, j))
+                labels.append(span.gold_entity.id)
+                nns.append(in_kb_cand_ids)
+        
+        context_input, candidate_input, label_input = prepare_crossencoder_data(
+            self.tokenizer, 
+            samples, 
+            labels, 
+            nns, 
+            self.id2title, 
+            self.id2text, 
+            keep_all=not is_training   # NOTE: If this is False, the implementation of sample2doc_index can be wrong. Thus do not evaluate on training data.
+        )
+        cft_context_input = self.mask_context_input(context_input) if is_training else context_input
+
+        context_input = modify(
+            context_input, candidate_input, self.config["max_seq_length"]
+        )
+        cft_context_input = modify(
+            cft_context_input, candidate_input, self.config["max_seq_length"]
+        ) if is_training else context_input
+
+        tensor_data = TensorDataset(context_input, cft_context_input, label_input)
+        return tensor_data, sample2doc_index
+    
+    def forward(
+            self, 
+            batch, 
+            is_training: bool = False, 
+    ) -> Tuple[Tensor, Tensor]:
+        batch = tuple(t.to(self.device) for t in batch)
+        context_input, cft_context_input, label_input = batch
+        if is_training:
+            loss, logits = self.crossencoder(context_input, label_input, self.config["max_context_length"])
+            cft_loss, _ = self.crossencoder(cft_context_input, label_input, self.config["max_context_length"])
+            loss = loss + self.config["cft_weight"] * cft_loss
+        else:
+            with torch.no_grad():
+                loss, logits = self.crossencoder(context_input, label_input, self.config["max_context_length"])
+        return loss, logits
+
+
 # class BlinkBiencoder(EntityDisambiguationModel):
 #     def __init__(
 #             self, 
@@ -297,7 +365,8 @@ if __name__ == "__main__":
     }
 
     config = json.load(open("crossencoder_wiki_large.json"))
-    blink_crossencoder = BlinkCrossEncoder(entity_corpus, config, checkpoint_path="crossencoder_wiki_large.bin", entity_pad_id="0")
+    config["cft_weight"] = 0.1
+    blink_crossencoder = BlinkCrossEncoderCFT(entity_corpus, config, checkpoint_path="crossencoder_wiki_large.bin", entity_pad_id="0")
     # blink_crossencoder = BlinkCrossEncoder(entity_corpus, config)
 
     train_docs = [
@@ -393,7 +462,5 @@ if __name__ == "__main__":
 
     pred_docs = blink_crossencoder(train_docs)
     print(pred_docs)
-    # pred_docs = blink_crossencoder(train_docs)
-    # print(pred_docs)
-    blink_crossencoder.eval(test_docs)
+    # blink_crossencoder.eval(test_docs)
     # blink_crossencoder.train(train_docs, val_docs=test_docs, batch_size=10)
