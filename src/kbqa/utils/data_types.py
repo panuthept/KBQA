@@ -37,6 +37,17 @@ class Entity:
         if self.score:
             data["score"] = self.score
         return data
+    
+    @classmethod
+    def from_dict(cls, data: dict) -> "Entity":
+        return Entity(
+            id=data["id"],
+            name=data["name"] if "name" in data else None,
+            aliases=data["aliases"] if "aliases" in data else None,
+            desc=data["desc"] if "desc" in data else None,
+            type=data["type"] if "type" in data else None,
+            score=data["score"] if "score" in data else None,
+        )
 
 
 @dataclass
@@ -61,6 +72,20 @@ class Span:
         if self.cand_entities:
             data["cand_entities"] = [entity.to_dict() for entity in self.cand_entities]
         return data
+    
+    @classmethod
+    def from_dict(cls, data: dict) -> "Span":
+        gold_entity = Entity.from_dict(data["gold_entity"]) if "gold_entity" in data else None
+        pred_entity = Entity.from_dict(data["pred_entity"]) if "pred_entity" in data else None
+        cand_entities = [Entity.from_dict(entity) for entity in data["cand_entities"]] if "cand_entities" in data else None
+        return Span(
+            start=data["start"],
+            length=data["length"],
+            surface_form=data["surface_form"],
+            gold_entity=gold_entity,
+            pred_entity=pred_entity,
+            cand_entities=cand_entities,
+        )
 
 
 @dataclass
@@ -73,3 +98,8 @@ class Doc:
         if self.spans:
             data["spans"] = [span.to_dict() for span in self.spans]
         return data
+    
+    @classmethod
+    def from_dict(cls, data: dict) -> "Doc":
+        spans = [Span.from_dict(span) for span in data["spans"]]
+        return Doc(text=data["text"], spans=spans)

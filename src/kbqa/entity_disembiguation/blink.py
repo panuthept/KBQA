@@ -40,12 +40,12 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
         self.id2text = {entity.id: entity.desc for entity in entity_corpus.values()}
         self.entity_pad_id = entity_pad_id
 
-    def _preprocess_docs(self, docs: List[Doc], is_training: bool = False):
+    def _preprocess_docs(self, docs: List[Doc], is_training: bool = False, verbose: bool = False):
         samples = []
         labels = []
         nns = []
         sample2doc_index = []
-        for i, doc in enumerate(docs):
+        for i, doc in enumerate(tqdm(docs, desc="Preprocessing docs"), disable=not verbose):
             for j, span in enumerate(doc.spans):
                 mention = doc.text[span.start:span.start + span.length]
                 context_left = doc.text[:span.start]
