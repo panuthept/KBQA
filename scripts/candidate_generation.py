@@ -28,7 +28,7 @@ def read_dataset(path: str) -> List[Doc]:
 if __name__ == "__main__":
     candidate_generator = ReFinEDCandidateGenerator(path_to_model="./data/entity_candidate_generation/refined")
 
-    with open("/data/datasets/wikipedia/training_dataset_with_candidates.jsonl", "w") as f:
+    with open("./data/datasets/wikipedia/training_dataset_with_candidates.jsonl", "w") as f:
         with open("./data/datasets/wikipedia/training_dataset.jsonl", "r") as f:
             for line in tqdm(f, desc="Processing dataset..."):
                 sample = json.loads(line)
