@@ -1,4 +1,5 @@
 import os
+from tqdm import tqdm
 from copy import deepcopy
 from unidecode import unidecode
 from typing import Tuple, Dict, List
@@ -95,6 +96,7 @@ class ReFinEDCandidateGenerator(EntityCandidateGenerationModel):
             docs: List[Doc], 
             backward_coref: bool = False,
             include_gold_entity: bool = False,
+            verbose: bool = False
     ) -> List[Doc]:
         person_coreference: Dict[str, List[Tuple[str, float]]] = dict()
 
@@ -103,7 +105,7 @@ class ReFinEDCandidateGenerator(EntityCandidateGenerationModel):
             for doc in pred_docs:
                 for span in doc.spans:
                     self.get_candidates(span.surface_form, person_coreference)
-        for doc in pred_docs:
+        for doc in tqdm(pred_docs, desc="Generating candidates...", disable=not verbose):
             for span in doc.spans:
                 cands = self.get_candidates(span.surface_form, person_coreference)
                 if include_gold_entity and span.gold_entity:
