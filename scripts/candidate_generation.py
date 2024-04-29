@@ -1,6 +1,5 @@
 import json
 from tqdm import tqdm
-from typing import List
 from kbqa.utils.data_types import Doc, Span, Entity
 from kbqa.entity_candidate_generation.refined import ReFinEDCandidateGenerator
 
@@ -10,7 +9,7 @@ if __name__ == "__main__":
 
     with open("./data/datasets/wikipedia/training_dataset_with_candidates.jsonl", "w") as f_w:
         with open("./data/datasets/wikipedia/training_dataset.jsonl", "r") as f:
-            for line in tqdm(f, desc="Processing dataset...", total=6185825):
+            for line in tqdm(f, total=6185825):
                 sample = json.loads(line)
                 text = sample["text"]
                 spans = []
