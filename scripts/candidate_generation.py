@@ -25,8 +25,6 @@ def read_dataset(path: str) -> List[Doc]:
 
 
 if __name__ == "__main__":
-    entity_corpus = {}
-
     candidate_generator = ReFinEDCandidateGenerator(path_to_model="./data/entity_candidate_generation/refined")
 
     docs: List[Doc] = read_dataset("./data/datasets/wikipedia/training_dataset.jsonl")
