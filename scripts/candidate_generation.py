@@ -28,7 +28,7 @@ def read_dataset(path: str) -> List[Doc]:
 if __name__ == "__main__":
     candidate_generator = ReFinEDCandidateGenerator(path_to_model="./data/entity_candidate_generation/refined")
 
-    with open("./data/datasets/wikipedia/training_dataset_with_candidates.jsonl", "w") as f:
+    with open("./data/datasets/wikipedia/training_dataset_with_candidates.jsonl", "w") as f_w:
         with open("./data/datasets/wikipedia/training_dataset.jsonl", "r") as f:
             for line in tqdm(f, desc="Processing dataset..."):
                 sample = json.loads(line)
@@ -45,4 +45,7 @@ if __name__ == "__main__":
                     spans.append(span)
                 docs = [Doc(text=text, spans=spans)]
                 docs = candidate_generator(docs, backward_coref=True, verbose=False)
-                f.write(json.dumps(docs[0].to_dict()) + "\n")
+                # Remove padding entities
+                for span in docs[0].spans:
+                    span.cand_entities = [entity for entity in span.cand_entities if entity.id != "Q0"]
+                f_w.write(json.dumps(docs[0].to_dict()) + "\n")
