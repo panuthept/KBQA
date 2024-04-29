@@ -8,7 +8,7 @@ from kbqa.entity_candidate_generation.refined import ReFinEDCandidateGenerator
 def read_dataset(path: str) -> List[Doc]:
     with open(path, "r") as f:
         docs = []
-        for line in f:
+        for line in tqdm(f, desc="Reading dataset..."):
             sample = json.loads(line)
             text = sample["text"]
             spans = []
