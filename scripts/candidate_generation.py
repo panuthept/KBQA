@@ -12,12 +12,13 @@ def read_dataset(path: str) -> List[Doc]:
             sample = json.loads(line)
             text = sample["text"]
             spans = []
-            for span in sample["gold_spans"]:
+            for span in sample["spans"]:
+                assert span["surface_form"] == text[span["start"]:span["start"] + span["length"]], f"Surface form mismatch: {span['surface_form']} != {text[span['start']:span['start'] + span['length']]}"
                 span = Span(
                     start=span["start"],
                     length=span["length"],
                     surface_form=text[span["start"]:span["start"] + span["length"]],
-                    gold_entity=Entity(id=span["wikidata_qid"]) if span["is_eval"] else None,
+                    gold_entity=Entity(id=span["gold_entity_id"]),
                 )
                 spans.append(span)
             docs.append(Doc(text=text, spans=spans))
