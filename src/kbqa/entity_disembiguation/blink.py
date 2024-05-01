@@ -88,7 +88,6 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
         nns = []
         sample2doc_index = []
         for i, doc in enumerate(tqdm(docs, desc="Preprocessing docs", disable=not verbose)):
-            print(doc)
             for j, span in enumerate(doc.spans):
                 mention = doc.text[span.start:span.start + span.length]
                 context_left = doc.text[:span.start]
@@ -99,6 +98,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
                     "context_right": context_right
                 })
 
+                print(span)
                 in_kb_cand_ids = [entity.id if entity.id in self.id2title and entity.id in self.id2text else self.entity_pad_id for entity in span.cand_entities]
                 if is_training and span.gold_entity.id not in in_kb_cand_ids:
                     # NOTE: Skip the sample if the gold entity is not in the candidate list
