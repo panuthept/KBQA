@@ -39,11 +39,11 @@ def read_dataset(
 
 
 if __name__ == "__main__":
-    docs: List[Doc] = read_dataset("./data/datasets/wikipedia/training_dataset_with_candidates.jsonl", total=6185825, max_samples=10000)
+    docs: List[Doc] = read_dataset("./data/datasets/wikipedia/training_dataset_with_candidates.jsonl", total=6185825, max_samples=1000)
     print(f"Dataset size: {len(docs)}")
 
     train_docs = docs[100:]
-    val_docs = docs[:100]
+    # val_docs = docs[:100]
 
     entity_corpus = get_entity_corpus("./data/entity_corpus.jsonl")
     print(f"Entities corpus size: {len(entity_corpus)}")
@@ -53,8 +53,11 @@ if __name__ == "__main__":
     )
     model = BlinkCrossEncoder(entity_corpus, config)
 
-    val_dataloader, _ = model._process_inputs(val_docs, is_training=True, verbose=True)
-    torch.save(val_dataloader, "./data/datasets/wikipedia/val_dataloader.pt")
+    tensor_data, _ = model._preprocess_docs(docs, is_training=True, verbose=True)
+    torch.save(tensor_data, "./data/daatasets/wikipedia/tensor_data.pt")
 
-    train_dataloader, _ = model._process_inputs(train_docs, is_training=True, verbose=True)
-    torch.save(train_dataloader, "./data/datasets/wikipedia/train_dataloader.pt")
+    # val_dataloader, _ = model._process_inputs(val_docs, is_training=False, verbose=True)
+    # torch.save(val_dataloader, "./data/datasets/wikipedia/val_dataloader.pt")
+
+    # train_dataloader, _ = model._process_inputs(train_docs, is_training=True, verbose=True)
+    # torch.save(train_dataloader, "./data/datasets/wikipedia/train_dataloader.pt")
