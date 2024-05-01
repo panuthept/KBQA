@@ -7,7 +7,11 @@ from kbqa.utils.data_utils import get_entity_corpus
 from kbqa.entity_disembiguation.blink import BlinkCrossEncoder, BlinkCrossEncoderConfig
 
 
-def read_dataset(path: str, total: int = 6185825) -> List[Doc]:
+def read_dataset(
+        path: str, 
+        total: int | None = None,
+        max_samples: int | None = None
+) -> List[Doc]:
     with open(path, "r") as f:
         docs = []
         for line in tqdm(f, desc="Reading dataset", total=total, unit=" samples"):
@@ -16,11 +20,13 @@ def read_dataset(path: str, total: int = 6185825) -> List[Doc]:
                 continue
             doc = Doc.from_dict(sample)
             docs.append(doc)
+            if max_samples and len(docs) >= max_samples:
+                break
     return docs
 
 
 if __name__ == "__main__":
-    docs: List[Doc] = read_dataset("./data/datasets/wikipedia/training_dataset_with_candidates.jsonl", total=6185825)
+    docs: List[Doc] = read_dataset("./data/datasets/wikipedia/training_dataset_with_candidates.jsonl", total=6185825, max_samples=10000)
     print(f"Dataset size: {len(docs)}")
 
     train_docs = docs[100:]
