@@ -39,10 +39,21 @@ def read_dataset(
 
 
 if __name__ == "__main__":
-    docs: List[Doc] = read_dataset("./data/datasets/wikipedia/training_dataset_with_candidates.jsonl", total=6185825, max_samples=1000)
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--max_samples", type=int, default=None)
+    parser.add_argument("--train_start_index", type=int, default=100)
+    parser.add_argument("--train_end_index", type=int, default=None)
+    args = parser.parse_args()
+
+    docs: List[Doc] = read_dataset("./data/datasets/wikipedia/training_dataset_with_candidates.jsonl", total=6185825, max_samples=args.max_samples)
     print(f"Dataset size: {len(docs)}")
 
-    train_docs = docs[100:]
+    if args.train_end_index is None:
+        args.train_end_index = len(docs)
+
+    train_docs = docs[args.train_start_index:args.train_end_index]
     # val_docs = docs[:100]
 
     entity_corpus = get_entity_corpus("./data/entity_corpus.jsonl")
@@ -54,7 +65,7 @@ if __name__ == "__main__":
     model = BlinkCrossEncoder(entity_corpus, config)
 
     tensor_data, _ = model._preprocess_docs(docs, is_training=True, verbose=True)
-    torch.save(tensor_data, "./data/daatasets/wikipedia/tensor_data.pt")
+    torch.save(tensor_data, f"./data/daatasets/wikipedia/tensor_data_{args.train_start_index}_{args.train_end_index}.pt")
 
     # val_dataloader, _ = model._process_inputs(val_docs, is_training=False, verbose=True)
     # torch.save(val_dataloader, "./data/datasets/wikipedia/val_dataloader.pt")
