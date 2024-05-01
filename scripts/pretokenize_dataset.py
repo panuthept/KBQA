@@ -21,6 +21,8 @@ def read_dataset(
             doc = Doc.from_dict(sample)
             docs.append(doc)
             if max_samples and len(docs) >= max_samples:
+                print(sample)
+                print("-" * 100)
                 break
     return docs
 
@@ -37,6 +39,7 @@ if __name__ == "__main__":
 
     config = BlinkCrossEncoderConfig(
         bert_model="bert-large-uncased",
+        path_to_model="./data/entity_disembiguation/blink/crossencoder",
     )
     model = BlinkCrossEncoder(entity_corpus, config)
 
