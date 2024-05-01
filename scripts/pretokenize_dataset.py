@@ -17,12 +17,12 @@ def read_dataset(
         for line in tqdm(f, desc="Reading dataset", total=total, unit=" samples"):
             sample = json.loads(line)
             if "spans" not in sample:
+                print(sample)
+                print("-" * 100)
                 continue
             doc = Doc.from_dict(sample)
             docs.append(doc)
             if max_samples and len(docs) >= max_samples:
-                print(sample)
-                print("-" * 100)
                 break
     return docs
 
@@ -38,8 +38,7 @@ if __name__ == "__main__":
     print(f"Entities corpus size: {len(entity_corpus)}")
 
     config = BlinkCrossEncoderConfig(
-        bert_model="bert-large-uncased",
-        path_to_model="./data/entity_disembiguation/blink/crossencoder",
+        bert_model="./data/entity_disembiguation/blink/crossencoder",
     )
     model = BlinkCrossEncoder(entity_corpus, config)
 
