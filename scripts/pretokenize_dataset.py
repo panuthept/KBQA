@@ -25,6 +25,13 @@ def read_dataset(
                 logger.error(f"Sample does not contain spans: {sample}")
                 continue
             doc = Doc.from_dict(sample)
+
+            valid_spans = []
+            for span in doc.spans:
+                if span.cand_entities and len(span.cand_entities) > 0 or span.gold_entity:
+                    valid_spans.append(span)
+            doc.spans = valid_spans
+
             docs.append(doc)
             if max_samples and len(docs) >= max_samples:
                 break
