@@ -136,8 +136,9 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
             docs: List[Doc],
             batch_size: int = 1,
             is_training: bool = False,
+            verbose: bool = False,
     ) -> Tuple[DataLoader, List[Tuple[int, int]]]:
-        tensor_data, sample2doc_index = self._preprocess_docs(docs, is_training=is_training)
+        tensor_data, sample2doc_index = self._preprocess_docs(docs, is_training=is_training, verbose=verbose)
         sampler = SequentialSampler(tensor_data) if not is_training else RandomSampler(tensor_data)
         dataloader = DataLoader(
             tensor_data, sampler=sampler, batch_size=batch_size
