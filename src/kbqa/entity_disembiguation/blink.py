@@ -88,6 +88,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
         nns = []
         sample2doc_index = []
         for i, doc in enumerate(tqdm(docs, desc="Preprocessing docs", disable=not verbose)):
+            print(doc)
             for j, span in enumerate(doc.spans):
                 mention = doc.text[span.start:span.start + span.length]
                 context_left = doc.text[:span.start]
