@@ -22,7 +22,7 @@ def read_dataset(
         for line in tqdm(f, desc="Reading dataset", total=total, unit=" samples"):
             sample = json.loads(line)
             if "spans" not in sample:
-                logger.error(f"Sample does not contain spans:\n{sample}")
+                logger.error(f"Sample does not contain spans: {sample}")
                 continue
             doc = Doc.from_dict(sample)
             docs.append(doc)
