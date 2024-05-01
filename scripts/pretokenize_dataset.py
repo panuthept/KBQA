@@ -28,7 +28,7 @@ def read_dataset(
 
             valid_spans = []
             for span in doc.spans:
-                if span.cand_entities and len(span.cand_entities) > 0 or span.gold_entity:
+                if span.cand_entities and len(span.cand_entities) > 0 and span.gold_entity:
                     valid_spans.append(span)
             doc.spans = valid_spans
 
