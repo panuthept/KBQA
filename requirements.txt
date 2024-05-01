@@ -4,3 +4,4 @@ ujson
 torch
 unidecode
 transformers
+pytorch-transformers

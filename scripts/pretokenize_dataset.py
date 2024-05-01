@@ -10,8 +10,10 @@ from kbqa.entity_disembiguation.blink import BlinkCrossEncoder, BlinkCrossEncode
 def read_dataset(path: str, total: int = 6185825) -> List[Doc]:
     with open(path, "r") as f:
         docs = []
-        for line in tqdm(f, desc="Reading dataset", total=total, unit="samples"):
+        for line in tqdm(f, desc="Reading dataset", total=total, unit=" samples"):
             sample = json.loads(line)
+            if "spans" not in sample:
+                continue
             doc = Doc.from_dict(sample)
             docs.append(doc)
     return docs
@@ -21,6 +23,9 @@ if __name__ == "__main__":
     docs: List[Doc] = read_dataset("./data/datasets/wikipedia/training_dataset_with_candidates.jsonl", total=6185825)
     print(f"Dataset size: {len(docs)}")
 
+    train_docs = docs[100:]
+    val_docs = docs[:100]
+
     entity_corpus = get_entity_corpus("./data/entity_corpus.jsonl")
     print(f"Entities corpus size: {len(entity_corpus)}")
 
@@ -28,5 +33,9 @@ if __name__ == "__main__":
         bert_model="bert-large-uncased",
     )
     model = BlinkCrossEncoder(entity_corpus, config)
-    dataloader, _ = model._process_inputs(docs, is_training=True)
-    torch.save(dataloader, "./data/datasets/wikipedia/dataloader.pt")
+
+    val_dataloader, _ = model._process_inputs(val_docs, is_training=True)
+    torch.save(val_dataloader, "./data/datasets/wikipedia/val_dataloader.pt")
+
+    train_dataloader, _ = model._process_inputs(train_docs, is_training=True)
+    torch.save(train_dataloader, "./data/datasets/wikipedia/train_dataloader.pt")
