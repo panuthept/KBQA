@@ -65,7 +65,7 @@ if __name__ == "__main__":
     model = BlinkCrossEncoder(entity_corpus, config)
 
     tensor_data, _ = model._preprocess_docs(docs, is_training=True, verbose=True)
-    torch.save(tensor_data, f"./data/daatasets/wikipedia/tensor_data_{args.train_start_index}_{args.train_end_index}.pt")
+    torch.save(tensor_data, f"./data/datasets/wikipedia/tensor_data_{args.train_start_index}_{args.train_end_index}.pt")
 
     # val_dataloader, _ = model._process_inputs(val_docs, is_training=False, verbose=True)
     # torch.save(val_dataloader, "./data/datasets/wikipedia/val_dataloader.pt")
