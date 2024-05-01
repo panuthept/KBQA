@@ -1,10 +1,15 @@
 import json
 import torch
+import logging
 from tqdm import tqdm
 from typing import List
 from kbqa.utils.data_types import Doc
 from kbqa.utils.data_utils import get_entity_corpus
 from kbqa.entity_disembiguation.blink import BlinkCrossEncoder, BlinkCrossEncoderConfig
+
+
+logging.basicConfig(filename="./pretokenize_dataset.log", filemode="w", level=logging.INFO)
+logger = logging.getLogger("pretokenize_dataset")
 
 
 def read_dataset(
@@ -17,8 +22,7 @@ def read_dataset(
         for line in tqdm(f, desc="Reading dataset", total=total, unit=" samples"):
             sample = json.loads(line)
             if "spans" not in sample:
-                print(sample)
-                print("-" * 100)
+                logger.error(f"Sample does not contain spans:\n{sample}")
                 continue
             doc = Doc.from_dict(sample)
             docs.append(doc)
