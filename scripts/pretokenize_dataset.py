@@ -42,12 +42,15 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
+    parser.add_argument("--dataset_path", type=str, required=True)
+    parser.add_argument("--output_path", type=str, required=True)
+    parser.add_argument("--dataset_size", type=int, default=100000)
     parser.add_argument("--max_samples", type=int, default=None)
-    parser.add_argument("--train_start_index", type=int, default=100)
+    parser.add_argument("--train_start_index", type=int, default=0)
     parser.add_argument("--train_end_index", type=int, default=None)
     args = parser.parse_args()
 
-    docs: List[Doc] = read_dataset("./data/datasets/wikipedia/training_dataset_with_candidates.jsonl", total=6185825, max_samples=args.max_samples)
+    docs: List[Doc] = read_dataset(args.dataset_path, total=args.dataset_size, max_samples=args.max_samples)
     print(f"Dataset size: {len(docs)}")
 
     if args.train_end_index is None:
@@ -65,4 +68,4 @@ if __name__ == "__main__":
     model = BlinkCrossEncoder(entity_corpus, config)
 
     tensor_data, _ = model._preprocess_docs(train_docs, is_training=True, verbose=True)
-    torch.save(tensor_data, f"./data/datasets/wikipedia/tensor_data_{args.train_start_index}_{args.train_end_index}.pt")
+    torch.save(tensor_data, args.output_path)
