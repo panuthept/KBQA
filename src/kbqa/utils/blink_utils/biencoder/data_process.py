@@ -61,7 +61,7 @@ def get_context_representation(
     input_ids = tokenizer.convert_tokens_to_ids(context_tokens)
     padding = [0] * (max_seq_length - len(input_ids))
     input_ids += padding
-    assert len(input_ids) == max_seq_length
+    assert len(input_ids) == max_seq_length, f"context_tokens length exceeded max_seq_length: {len(context_tokens)}\n{context_tokens}"
 
     return {
         "tokens": context_tokens,
