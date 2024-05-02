@@ -30,6 +30,10 @@ def read_dataset(
             for span in doc.spans:
                 if span.cand_entities and len(span.cand_entities) > 0 and span.gold_entity:
                     valid_spans.append(span)
+            if len(valid_spans) == 0:
+                logger.error(f"Sample contains no valid span")
+                continue
+            
             doc.spans = valid_spans
 
             docs.append(doc)
