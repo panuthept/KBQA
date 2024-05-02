@@ -70,6 +70,8 @@ def get_context_representation(
         context_tokens = (
             mention_tokens + context_right[:right_quota]
         )
+    else:
+        context_tokens = mention_tokens
 
     context_tokens = ["[CLS]"] + context_tokens + ["[SEP]"]
     input_ids = tokenizer.convert_tokens_to_ids(context_tokens)

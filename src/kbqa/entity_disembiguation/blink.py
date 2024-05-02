@@ -193,12 +193,52 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
                 pred_docs[doc_idx].spans[span_idx].cand_entities[cand_idx].score = cand_scores[cand_idx]
         return pred_docs
     
+    def save_checkpoint(
+            self, 
+            checkpoint_path: str, 
+            optimizer, 
+            scheduler, 
+            epoch: int = 0, 
+            val_best_score: float = 0.0,
+            best_model_path: str = None,
+    ):
+        if not os.path.exists(checkpoint_path):
+            os.makedirs(checkpoint_path)
+
+        checkpoint = {
+            "epoch": epoch,
+            "val_best_score": val_best_score,
+            "best_model_path": best_model_path,
+            "optimizer": optimizer.state_dict(),
+            "scheduler": scheduler.state_dict(),
+        }
+        torch.save(checkpoint, os.path.join(checkpoint_path, "checkpoint.pt"))
+        self.crossencoder.save(checkpoint_path)
+
+    def load_checkpoint(
+            self, 
+            checkpoint_path: str, 
+            optimizer, 
+            scheduler
+    ):
+        checkpoint = torch.load(os.path.join(checkpoint_path, "checkpoint.pt"))
+        epoch = checkpoint["epoch"]
+        val_best_score = checkpoint["val_best_score"]
+        best_model_path = checkpoint["best_model_path"]
+        optimizer.load_state_dict(checkpoint["optimizer"])
+        scheduler.load_state_dict(checkpoint["scheduler"])
+
+        self.crossencoder.load_model(checkpoint_path)
+        return epoch, val_best_score, best_model_path, optimizer, scheduler
+        
     def train(
             self, 
             train_docs: List[Doc] | None = None, 
             train_dataloader: DataLoader | None = None,
             val_docs: List[Doc] | None = None, 
             batch_size: int = 1,
+            resume: bool = False,
+            checkpoint_path: str = None,
             model_output_path: str = "models/blink_crossencoder",
     ):
         assert train_docs is not None or train_dataloader is not None, "Either train_docs or train_dataloader must be provided."
@@ -221,24 +261,30 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
         if train_dataloader is None:
             train_dataloader, _ = self._process_inputs(train_docs, batch_size=batch_size, is_training=True)
 
-        # Prepare validation data
-        best_model_path = None
-        val_best_score = None
-        if val_docs:
-            val_dataloader, val_sample2doc_index = self._process_inputs(val_docs, batch_size=batch_size, is_training=False)
-            logger.info(" Evaluating on validation data (initial) ...")
-            pred_val_docs = self.__call__(val_docs, val_dataloader, val_sample2doc_index, batch_size=batch_size)
-            metrics = EDMetrics(pred_val_docs)
-            metrics.summary(logger)
-            val_best_score = metrics.get_f1()
-            save_model_path = os.path.join(model_output_path, f"epoch_0_{round(val_best_score * 100, 1)}")
-            logger.info(f" Saving initial model to {save_model_path}")
-            utils.save_model(self.crossencoder.model, self.tokenizer, save_model_path)
-            best_model_path = save_model_path
-
         # Prepare optimizer and sheduler
         optimizer = get_optimizer(self.crossencoder.model, self.config.to_dict())
         scheduler = get_scheduler(self.config.to_dict(), optimizer, len(train_docs), logger)
+
+        resume_epoch = None
+        val_best_score = 0.0
+        best_model_path = None
+        if resume and checkpoint_path:
+            resume_epoch, val_best_score, best_model_path, optimizer, scheduler = self.load_checkpoint(checkpoint_path, optimizer, scheduler)
+            logger.info(f" Resuming training from epoch {resume_epoch + 1} ...")
+        
+        # Prepare validation data
+        if val_docs:
+            val_dataloader, val_sample2doc_index = self._process_inputs(val_docs, batch_size=batch_size, is_training=False)
+            if not (resume and checkpoint_path):
+                logger.info(" Evaluating on validation data (initial) ...")
+                pred_val_docs = self.__call__(val_docs, val_dataloader, val_sample2doc_index, batch_size=batch_size)
+                metrics = EDMetrics(pred_val_docs)
+                metrics.summary(logger)
+                val_best_score = metrics.get_f1()
+                save_model_path = os.path.join(model_output_path, f"epoch_0_{round(val_best_score * 100, 1)}")
+                logger.info(f" Saving initial model to {save_model_path}")
+                utils.save_model(self.crossencoder.model, self.tokenizer, save_model_path)
+                best_model_path = save_model_path
 
         # Training loop
         logger.info(" Starting training...")
@@ -253,6 +299,8 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
         num_train_epochs = self.config.num_train_epochs
         grad_acc_steps = self.config.gradient_accumulation_steps
         for epoch_idx in trange(int(num_train_epochs), desc="Epoch"):
+            if resume_epoch is not None and epoch_idx < resume_epoch:
+                continue
             part = 0
             train_loss = 0
             for step, batch in enumerate(tqdm(train_dataloader, desc="Batch")):
@@ -314,6 +362,10 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
                 logger.info(f" Saving fine-tuned model to {save_model_path}")
                 utils.save_model(self.crossencoder.model, self.tokenizer, save_model_path)
                 best_model_path = save_model_path
+
+            # Save checkpoint
+            checkpoint_path = os.path.join(model_output_path, f"checkpoint_{epoch_idx}")
+            self.save_checkpoint(checkpoint_path, optimizer, scheduler, epoch_idx, val_best_score, best_model_path)
 
         execution_time = (time.time() - time_start) / 60
         utils.write_to_file(
