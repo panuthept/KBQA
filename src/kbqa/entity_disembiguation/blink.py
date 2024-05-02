@@ -123,7 +123,8 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
             nns, 
             self.id2title, 
             self.id2text, 
-            keep_all=not is_training   # NOTE: If this is False, the implementation of sample2doc_index can be wrong. Thus do not evaluate on training data.
+            keep_all=not is_training,   # NOTE: If this is False, the implementation of sample2doc_index can be wrong. Thus do not evaluate on training data.
+            verbose=verbose,
         )
         context_input = modify(
             context_input, candidate_input, self.config.max_seq_length
@@ -166,16 +167,17 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
             dataloader: DataLoader | None = None,                   # NOTE: If dataloader is provided, sample2doc_index must be provided
             sample2doc_index: List[Tuple[int, int]] | None = None,  # NOTE: If dataloader is provided, sample2doc_index must be provided
             batch_size: int = 1,
+            verbose: bool = False,
     ) -> List[Doc]:
         self.crossencoder.model.eval()
 
         if dataloader is None and sample2doc_index is None:
-            dataloader, sample2doc_index = self._process_inputs(docs, batch_size=batch_size, is_training=False)
+            dataloader, sample2doc_index = self._process_inputs(docs, batch_size=batch_size, is_training=False, verbose=verbose)
 
         all_pred_scores = []
         all_pred_indices = []
         all_cand_scores = []
-        for batch in dataloader:
+        for batch in tqdm(dataloader, disable=not verbose, desc="Inference"):
             _, logits = self.forward(batch, is_training=False)
             norm_logits = torch.nn.functional.softmax(logits, dim=-1)
             pred_scores, pred_indices = torch.max(norm_logits, dim=-1)

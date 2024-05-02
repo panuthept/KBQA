@@ -22,11 +22,12 @@ def prepare_crossencoder_mentions(
     context_key="context",
     ent_start_token=ENT_START_TAG,
     ent_end_token=ENT_END_TAG,
+    verbose=False,
 ):
 
     context_input_list = []  # samples X 128
 
-    for sample in tqdm(samples):
+    for sample in tqdm(samples, disable=not verbose, desc="Encoding mentions"):
         context_tokens = data.get_context_representation(
             sample,
             tokenizer,
@@ -113,11 +114,11 @@ def filter_crossencoder_tensor_input(
 
 
 def prepare_crossencoder_data(
-    tokenizer, samples, labels, nns, id2title, id2text, keep_all=False
+    tokenizer, samples, labels, nns, id2title, id2text, keep_all=False, verbose=False
 ):
 
     # encode mentions
-    context_input_list = prepare_crossencoder_mentions(tokenizer, samples)
+    context_input_list = prepare_crossencoder_mentions(tokenizer, samples, verbose=verbose)
 
     # encode candidates (output of biencoder)
     label_input_list, candidate_input_list = prepare_crossencoder_candidates(

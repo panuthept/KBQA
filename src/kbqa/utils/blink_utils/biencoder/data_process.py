@@ -35,6 +35,9 @@ def get_context_representation(
     mention_tokens = []
     if sample[mention_key] and len(sample[mention_key]) > 0:
         mention_tokens = tokenizer.tokenize(sample[mention_key])
+        if len(mention_tokens) > max_seq_length - 4:
+            # NOTE: truncate mention_tokens if it exceeds max_seq_length
+            mention_tokens = mention_tokens[:max_seq_length - 4]
         mention_tokens = [ent_start_token] + mention_tokens + [ent_end_token]
 
     context_left = sample[context_key + "_left"]
@@ -53,9 +56,20 @@ def get_context_representation(
         if right_add <= right_quota:
             left_quota += right_quota - right_add
 
-    context_tokens = (
-        context_left[-left_quota:] + mention_tokens + context_right[:right_quota]
-    )
+    # NOTE: the following code is to ensure that the length of the context_tokens is less than max_seq_length
+    if left_quota > 0 and right_quota > 0:
+        # Ideal case
+        context_tokens = (
+            context_left[-left_quota:] + mention_tokens + context_right[:right_quota]
+        )
+    elif left_quota > 0:
+        context_tokens = (
+            context_left[-left_quota:] + mention_tokens
+        )
+    elif right_quota > 0:
+        context_tokens = (
+            mention_tokens + context_right[:right_quota]
+        )
 
     context_tokens = ["[CLS]"] + context_tokens + ["[SEP]"]
     input_ids = tokenizer.convert_tokens_to_ids(context_tokens)
