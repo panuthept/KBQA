@@ -163,8 +163,8 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
     def __call__(
             self, 
             docs: List[Doc],
-            dataloader: DataLoader | None = None,
-            sample2doc_index: List[Tuple[int, int]] | None = None,
+            dataloader: DataLoader | None = None,                   # NOTE: If dataloader is provided, sample2doc_index must be provided
+            sample2doc_index: List[Tuple[int, int]] | None = None,  # NOTE: If dataloader is provided, sample2doc_index must be provided
             batch_size: int = 1,
     ) -> List[Doc]:
         self.crossencoder.model.eval()
