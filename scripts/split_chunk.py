@@ -15,10 +15,10 @@ if __name__ == "__main__":
             if len(lines) >= args.max_lines:
                 with open(args.chunk_path.replace(".jsonl", f"_{index}.jsonl"), "w") as out:
                     for line in lines:
-                        out.write(f"{line}\n")
+                        out.write(line)
                 index += 1
                 lines = []
         if len(lines) > 0:
             with open(args.chunk_path.replace(".jsonl", f"_{index}.jsonl"), "w") as out:
                 for line in lines:
-                    out.write(f"{line}\n")
+                    out.write({line})
