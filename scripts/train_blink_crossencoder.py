@@ -67,6 +67,6 @@ if __name__ == "__main__":
         bert_model="./data/entity_disembiguation/blink/crossencoder",
     )
     model = BlinkCrossEncoder(entity_corpus, config)
-    model.train(train_docs, val_docs, num_epochs=1, batch_size=8, lr=1e-5, output_path=args.model_output_path)
+    model.train(train_docs=train_docs, val_docs=val_docs, batch_size=8, model_output_path=args.model_output_path)
     
 
