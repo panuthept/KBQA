@@ -448,7 +448,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
         # Prepare training data
         if train_dataloader is None:
             if train_dataset is None:
-                train_dataloader, _ = self._process_inputs(train_docs, batch_size=batch_size, is_training=True)
+                train_dataloader, _ = self._process_inputs(train_docs, batch_size=batch_size, is_training=True, verbose=True)
             else:
                 train_dataloader = DataLoader(train_dataset, sampler=RandomSampler(train_dataset), batch_size=batch_size)
 
@@ -465,7 +465,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
         
         # Prepare validation data
         if val_docs:
-            val_dataloader, val_sample2doc_index = self._process_inputs(val_docs, batch_size=batch_size, is_training=False)
+            val_dataloader, val_sample2doc_index = self._process_inputs(val_docs, batch_size=batch_size, is_training=False, verbose=True)
             if not (resume and checkpoint_path):
                 logger.info(" Evaluating on validation data (initial) ...")
                 pred_val_docs = self.__call__(val_docs, val_dataloader, val_sample2doc_index, batch_size=batch_size)
