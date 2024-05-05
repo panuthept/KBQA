@@ -77,13 +77,12 @@ if __name__ == "__main__":
 
     if args.train_on_chunks:
         len_train_data = 0
-        train_datasets_paths = []
-        for file_name in tqdm(os.listdir(args.train_dataset_path), desc="Reading train chunks"):
-            if file_name.endswith(".pt"):
-                train_datasets_path = os.path.join(args.train_dataset_path, file_name)
-                train_dataset = torch.load(train_datasets_path)
-                len_train_data += len(train_dataset)
-                train_datasets_paths.append(train_datasets_path)
+        train_datasets_paths = [file_name for file_name in os.listdir(args.train_dataset_path) if file_name.endswith(".pt")]
+        for file_name in tqdm(train_datasets_paths, desc="Reading train chunks"):
+            train_datasets_path = os.path.join(args.train_dataset_path, file_name)
+            train_dataset = torch.load(train_datasets_path)
+            len_train_data += len(train_dataset)
+            train_datasets_paths.append(train_datasets_path)
         print(f"Number of train chunks: {len(train_datasets_paths)}\n{train_datasets_paths}")
         logger.info(f"Number of train chunks: {len(train_datasets_paths)}\n{train_datasets_paths}")
         print(f"Train dataset size: {len_train_data}")
