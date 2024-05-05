@@ -51,6 +51,7 @@ if __name__ == "__main__":
     parser.add_argument("--train_dataset_path", type=str, required=True)
     parser.add_argument("--val_dataset_path", type=str, required=True)
     parser.add_argument("--entity_corpus_path", type=str, required=True)
+    parser.add_argument("--batch_size", type=int, default=4)
     parser.add_argument("--model_output_path", type=str, default="./models/blink_crossencoder")
     parser.add_argument("--train_on_chunks", action="store_true")
     args = parser.parse_args()
@@ -72,6 +73,8 @@ if __name__ == "__main__":
 
     config = BlinkCrossEncoderConfig(
         bert_model="./data/entity_disembiguation/blink/crossencoder",
+        train_batch_size=args.batch_size,
+        
     )
     model = BlinkCrossEncoder(entity_corpus, config)
 
@@ -89,7 +92,7 @@ if __name__ == "__main__":
         model.train_on_chunks(
             train_datasets_paths=train_datasets_paths, 
             val_docs=val_docs, 
-            batch_size=8, 
+            batch_size=args.batch_size,
             len_train_data=len_train_data, 
             model_output_path=args.model_output_path
         )
@@ -101,8 +104,6 @@ if __name__ == "__main__":
         model.train(
             train_docs=train_docs, 
             val_docs=val_docs, 
-            batch_size=8, 
+            batch_size=args.batch_size,
             model_output_path=args.model_output_path
         )
-    
-
