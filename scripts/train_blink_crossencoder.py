@@ -76,19 +76,36 @@ if __name__ == "__main__":
     model = BlinkCrossEncoder(entity_corpus, config)
 
     if args.train_on_chunks:
+        len_train_data = 0
         train_datasets_paths = []
-        for file_name in os.listdir(args.train_dataset_path):
+        for file_name in tqdm(os.listdir(args.train_dataset_path), desc="Reading train chunks"):
             if file_name.endswith(".pt"):
-                train_datasets_paths.append(os.path.join(args.train_dataset_path, file_name))
-        print(f"Number of train datasets: {len(train_datasets_paths)}\n{train_datasets_paths}")
-        logger.info(f"Number of train datasets: {len(train_datasets_paths)}\n{train_datasets_paths}")
+                train_datasets_path = os.path.join(args.train_dataset_path, file_name)
+                train_dataset = torch.load(train_datasets_path)
+                len_train_data += len(train_dataset)
+                train_datasets_paths.append(train_datasets_path)
+        print(f"Number of train chunks: {len(train_datasets_paths)}\n{train_datasets_paths}")
+        logger.info(f"Number of train chunks: {len(train_datasets_paths)}\n{train_datasets_paths}")
+        print(f"Train dataset size: {len(len_train_data)}")
+        logger.info(f"Train dataset size: {len(len_train_data)}")
 
-        model.train_on_chunks(train_datasets_paths=train_datasets_paths, val_docs=val_docs, batch_size=8, model_output_path=args.model_output_path)
+        model.train_on_chunks(
+            train_datasets_paths=train_datasets_paths, 
+            val_docs=val_docs, 
+            batch_size=8, 
+            len_train_data=len_train_data, 
+            model_output_path=args.model_output_path
+        )
     else:
         train_docs: List[Doc] = read_dataset(args.train_dataset_path)
         print(f"Train dataset size: {len(train_docs)}")
         logger.info(f"Train dataset size: {len(train_docs)}")
 
-        model.train(train_docs=train_docs, val_docs=val_docs, batch_size=8, model_output_path=args.model_output_path)
+        model.train(
+            train_docs=train_docs, 
+            val_docs=val_docs, 
+            batch_size=8, 
+            model_output_path=args.model_output_path
+        )
     
 

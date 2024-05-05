@@ -341,6 +341,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
             train_datasets_paths: List[str],
             val_docs: List[Doc] | None = None, 
             batch_size: int = 1,
+            len_train_data: int = 1000000,
             resume: bool = False,
             checkpoint_path: str = None,
             model_output_path: str = "models/blink_crossencoder",
@@ -361,7 +362,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
 
         # Prepare optimizer and sheduler
         optimizer = get_optimizer(self.crossencoder.model, self.config.to_dict())
-        scheduler = get_scheduler(self.config.to_dict(), optimizer, len(train_docs), logger)
+        scheduler = get_scheduler(self.config.to_dict(), optimizer, len_train_data, logger)
 
         resume_epoch_idx = None
         val_best_score = 0.0
@@ -467,7 +468,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
 
         # Prepare optimizer and sheduler
         optimizer = get_optimizer(self.crossencoder.model, self.config.to_dict())
-        scheduler = get_scheduler(self.config.to_dict(), optimizer, len(train_docs), logger)
+        scheduler = get_scheduler(self.config.to_dict(), optimizer, len(train_dataloader), logger)
 
         resume_epoch_idx = None
         val_best_score = 0.0
