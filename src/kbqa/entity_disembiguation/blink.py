@@ -199,7 +199,8 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
         all_pred_indices = []
         all_cand_scores = []
         for batch in tqdm(dataloader, disable=not verbose, desc="Inference"):
-            _, logits = self.forward(batch, is_training=False)
+            with autocast(enabled=self.config.fp16):
+                _, logits = self.forward(batch, is_training=False)
             norm_logits = torch.nn.functional.softmax(logits, dim=-1)
             pred_scores, pred_indices = torch.max(norm_logits, dim=-1)
             all_cand_scores.extend(norm_logits.cpu().numpy().tolist())
