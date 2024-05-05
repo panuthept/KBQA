@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from kbqa.utils.metrics import EDMetrics
 from typing import Tuple, List, Dict, Any
 from kbqa.utils.data_types import Doc, Entity
+from torch.cuda.amp import autocast, GradScaler
 from torch.utils.data import Dataset, IterableDataset
 from kbqa.utils.blink_utils.candidate_ranking import utils
 from kbqa.utils.blink_utils.biencoder.biencoder import BiEncoderRanker
@@ -89,7 +90,6 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
         self.device = device
         self.config = config
         self.crossencoder = CrossEncoderRanker(config.to_dict())
-        self.crossencoder.model.to(self.device)
         self.tokenizer = self.crossencoder.tokenizer
         self.id2title = {entity.id: entity.name for entity in entity_corpus.values()}
         self.id2text = {entity.id: entity.desc for entity in entity_corpus.values()}
@@ -172,14 +172,15 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
             batch, 
             is_training: bool = False, 
     ) -> Tuple[Tensor, Tensor]:
-        batch = tuple(t.to(self.device) for t in batch)
-        context_input, label_input, padding_masks = batch
-        if is_training:
-            loss, logits = self.crossencoder(context_input, label_input, self.config.max_context_length)
-        else:
-            with torch.no_grad():
+        with autocast(enabled=self.config.fp16):
+            batch = tuple(t.to(self.device) for t in batch)
+            context_input, label_input, padding_masks = batch
+            if is_training:
                 loss, logits = self.crossencoder(context_input, label_input, self.config.max_context_length)
-        logits = torch.where(padding_masks, logits, torch.tensor(-1e9).to(self.device))
+            else:
+                with torch.no_grad():
+                    loss, logits = self.crossencoder(context_input, label_input, self.config.max_context_length)
+            logits = torch.where(padding_masks, logits, torch.tensor(-1e9).to(self.device))
         return loss, logits
     
     def __call__(
@@ -219,6 +220,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
             checkpoint_path: str, 
             optimizer, 
             scheduler, 
+            scaler,
             epoch_idx: int = 0, 
             chunk_idx: int = 0,
             val_best_score: float = 0.0,
@@ -234,6 +236,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
             "best_model_path": best_model_path,
             "optimizer": optimizer.state_dict(),
             "scheduler": scheduler.state_dict(),
+            "scaler": scaler.state_dict(),
         }
         torch.save(checkpoint, os.path.join(checkpoint_path, "checkpoint.pt"))
         self.crossencoder.save(checkpoint_path)
@@ -242,7 +245,8 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
             self, 
             checkpoint_path: str, 
             optimizer, 
-            scheduler
+            scheduler,
+            scaler,
     ):
         checkpoint = torch.load(os.path.join(checkpoint_path, "checkpoint.pt"))
         epoch_idx = checkpoint["epoch_idx"]
@@ -251,15 +255,17 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
         best_model_path = checkpoint["best_model_path"]
         optimizer.load_state_dict(checkpoint["optimizer"])
         scheduler.load_state_dict(checkpoint["scheduler"])
+        scaler.load_state_dict(checkpoint["scaler"])
 
         self.crossencoder.load_model(checkpoint_path)
-        return epoch_idx, chunk_idx, val_best_score, best_model_path, optimizer, scheduler
+        return epoch_idx, chunk_idx, val_best_score, best_model_path
 
     def _train_epoch(
             self,
             train_dataloader: DataLoader,
             optimizer,
             scheduler,
+            scaler,
             val_docs: List[Doc] | None = None,
             val_dataloader: DataLoader | None = None,
             val_sample2doc_index: List[Tuple[int, int]] | None = None,
@@ -279,7 +285,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
                 loss = loss / grad_acc_steps
             
             train_loss += loss.item()
-            loss.backward()
+            scaler.scale(loss).backward()
 
             if (step + 1) % (self.config.print_interval * grad_acc_steps) == 0:
                 train_loss = train_loss / (self.config.print_interval * grad_acc_steps)
@@ -287,10 +293,12 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
                 train_loss = 0
 
             if (step + 1) % grad_acc_steps == 0:
+                scaler.unscale_(optimizer)
                 torch.nn.utils.clip_grad_norm_(self.crossencoder.model.parameters(), self.config.max_grad_norm)
-                optimizer.step()
-                scheduler.step()
+                scaler.step(optimizer)
+                scaler.update()
                 optimizer.zero_grad()
+                scheduler.step()
 
             if (step + 1) % (self.config.eval_interval * grad_acc_steps) == 0:
                 if val_docs:
@@ -334,7 +342,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
 
         # Save checkpoint
         checkpoint_path = os.path.join(model_output_path, f"checkpoint_{epoch_idx + 1}_{chunk_idx + 1}")
-        self.save_checkpoint(checkpoint_path, optimizer, scheduler, epoch_idx, chunk_idx, val_best_score, best_model_path)
+        self.save_checkpoint(checkpoint_path, optimizer, scheduler, scaler, epoch_idx, chunk_idx, val_best_score, best_model_path)
 
     def train_on_chunks(
             self,
@@ -363,13 +371,14 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
         # Prepare optimizer and sheduler
         optimizer = get_optimizer(self.crossencoder.model, self.config.to_dict())
         scheduler = get_scheduler(self.config.to_dict(), optimizer, len_train_data, logger)
+        scaler = GradScaler()
 
         resume_epoch_idx = None
         resume_chunk_idx = None
         val_best_score = 0.0
         best_model_path = None
         if resume and checkpoint_path:
-            resume_epoch_idx, resume_chunk_idx, val_best_score, best_model_path, optimizer, scheduler = self.load_checkpoint(checkpoint_path, optimizer, scheduler)
+            resume_epoch_idx, resume_chunk_idx, val_best_score, best_model_path = self.load_checkpoint(checkpoint_path, optimizer, scheduler, scaler)
             logger.info(f" Resuming training from epoch {resume_epoch_idx + 1} ...")
         
         # Prepare validation data
@@ -413,6 +422,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
                     train_dataloader,
                     optimizer,
                     scheduler,
+                    scaler,
                     val_docs=val_docs,
                     val_dataloader=val_dataloader,
                     val_sample2doc_index=val_sample2doc_index,
@@ -470,12 +480,13 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
         # Prepare optimizer and sheduler
         optimizer = get_optimizer(self.crossencoder.model, self.config.to_dict())
         scheduler = get_scheduler(self.config.to_dict(), optimizer, len(train_dataloader), logger)
+        scaler = GradScaler()
 
         resume_epoch_idx = None
         val_best_score = 0.0
         best_model_path = None
         if resume and checkpoint_path:
-            resume_epoch_idx, _, val_best_score, best_model_path, optimizer, scheduler = self.load_checkpoint(checkpoint_path, optimizer, scheduler)
+            resume_epoch_idx, _, val_best_score, best_model_path = self.load_checkpoint(checkpoint_path, optimizer, scheduler, scaler)
             logger.info(f" Resuming training from epoch {resume_epoch_idx + 1} ...")
         
         # Prepare validation data
@@ -511,6 +522,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
                 train_dataloader,
                 optimizer,
                 scheduler,
+                scaler,
                 val_docs=val_docs,
                 val_dataloader=val_dataloader,
                 val_sample2doc_index=val_sample2doc_index,
