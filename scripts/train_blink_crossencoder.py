@@ -54,6 +54,13 @@ if __name__ == "__main__":
     parser.add_argument("--model_output_path", type=str, default="./models/blink_crossencoder")
     args = parser.parse_args()
 
+    if torch.cuda.is_available():
+        print("CUDA is available")
+        logger.info("CUDA is available")
+    else:
+        print("CUDA is not available")
+        logger.info("CUDA is not available")
+
     train_docs: List[Doc] = read_dataset(args.train_dataset_path)
     print(f"Train dataset size: {len(train_docs)}")
 

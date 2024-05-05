@@ -8,10 +8,10 @@ from torch import Tensor
 from copy import deepcopy
 from tqdm import tqdm, trange
 from dataclasses import dataclass
-from torch.utils.data import Dataset
 from kbqa.utils.metrics import EDMetrics
 from typing import Tuple, List, Dict, Any
 from kbqa.utils.data_types import Doc, Entity
+from torch.utils.data import Dataset, IterableDataset
 from kbqa.utils.blink_utils.candidate_ranking import utils
 from kbqa.utils.blink_utils.biencoder.biencoder import BiEncoderRanker
 from kbqa.entity_disembiguation.base_class import EntityDisambiguationModel
@@ -63,6 +63,19 @@ class BlinkCrossEncoderConfig:
         # Filter out the keys that are not in the class
         config = {key: value for key, value in config.items() if key in cls.__dataclass_fields__}
         return cls(**config)
+    
+
+class BlinkCrossEncoderIterableDataset(IterableDataset):
+    def __init__(
+            self, 
+            dataset_path: str,
+            tokenizer,
+            entity_corpus: Dict[str, Entity], 
+            config: BlinkCrossEncoderConfig,
+            entity_pad_id: str = "Q0",
+            max_spans_per_doc: int = 30,
+    ):
+        self.dataset_path = dataset_path
 
 
 class BlinkCrossEncoder(EntityDisambiguationModel):
