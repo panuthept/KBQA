@@ -18,6 +18,7 @@ def read_dataset(
         total: int | None = None,
         max_samples: int | None = None
 ) -> List[Doc]:
+    assert os.path.exists(path), f"Dataset file does not exist: {path}"
     with open(path, "r") as f:
         docs = []
         for line in tqdm(f, desc="Reading dataset", total=total, unit=" samples"):
@@ -50,8 +51,8 @@ if __name__ == "__main__":
     parser.add_argument("--train_dataset_path", type=str, required=True)
     parser.add_argument("--val_dataset_path", type=str, required=True)
     parser.add_argument("--entity_corpus_path", type=str, required=True)
-    # parser.add_argument("--train_chunk_num", type=int, default=1)
     parser.add_argument("--model_output_path", type=str, default="./models/blink_crossencoder")
+    parser.add_argument("--train_on_chunks", action="store_true")
     args = parser.parse_args()
 
     if torch.cuda.is_available():
@@ -61,19 +62,33 @@ if __name__ == "__main__":
         print("CUDA is not available")
         logger.info("CUDA is not available")
 
-    train_docs: List[Doc] = read_dataset(args.train_dataset_path)
-    print(f"Train dataset size: {len(train_docs)}")
-
     val_docs: List[Doc] = read_dataset(args.val_dataset_path)
     print(f"Validation dataset size: {len(val_docs)}")
+    logger.info(f"Validation dataset size: {len(val_docs)}")
 
     entity_corpus = get_entity_corpus(args.entity_corpus_path)
     print(f"Entities corpus size: {len(entity_corpus)}")
+    logger.info(f"Entities corpus size: {len(entity_corpus)}")
 
     config = BlinkCrossEncoderConfig(
         bert_model="./data/entity_disembiguation/blink/crossencoder",
     )
     model = BlinkCrossEncoder(entity_corpus, config)
-    model.train(train_docs=train_docs, val_docs=val_docs, batch_size=8, model_output_path=args.model_output_path)
+
+    if args.train_on_chunks:
+        train_datasets_paths = []
+        for file_name in os.listdir(args.train_dataset_path):
+            if file_name.endswith(".pt"):
+                train_datasets_paths.append(os.path.join(args.train_dataset_path, file_name))
+        print(f"Number of train datasets: {len(train_datasets_paths)}\n{train_datasets_paths}")
+        logger.info(f"Number of train datasets: {len(train_datasets_paths)}\n{train_datasets_paths}")
+
+        model.train_on_chunks(train_datasets_paths=train_datasets_paths, val_docs=val_docs, batch_size=8, model_output_path=args.model_output_path)
+    else:
+        train_docs: List[Doc] = read_dataset(args.train_dataset_path)
+        print(f"Train dataset size: {len(train_docs)}")
+        logger.info(f"Train dataset size: {len(train_docs)}")
+
+        model.train(train_docs=train_docs, val_docs=val_docs, batch_size=8, model_output_path=args.model_output_path)
     
 
