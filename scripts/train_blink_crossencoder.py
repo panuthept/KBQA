@@ -77,7 +77,7 @@ if __name__ == "__main__":
 
     if args.train_on_chunks:
         len_train_data = 0
-        train_datasets_paths = [file_name for file_name in os.listdir(args.train_dataset_path) if file_name.endswith(".pt")]
+        train_datasets_paths = [os.path.join(args.train_dataset_path, file_name) for file_name in os.listdir(args.train_dataset_path) if file_name.endswith(".pt")]
         for train_datasets_path in tqdm(train_datasets_paths, desc="Reading train chunks"):
             train_dataset = torch.load(train_datasets_path)
             len_train_data += len(train_dataset)
