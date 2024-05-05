@@ -295,7 +295,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
             if (step + 1) % (self.config.eval_interval * grad_acc_steps) == 0:
                 if val_docs:
                     logger.info(f" Evaluating on validation data (epoch_{epoch_idx + 1}_{chunk_idx + 1}_{part + 1}) ...")
-                    pred_val_docs = self.__call__(val_docs, val_dataloader, val_sample2doc_index, batch_size=batch_size)
+                    pred_val_docs = self.__call__(val_docs, val_dataloader, val_sample2doc_index, batch_size=batch_size, verbose=True)
                     metrics = EDMetrics(pred_val_docs)
                     metrics.summary(logger)
                     val_score = metrics.get_f1()
@@ -315,7 +315,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
         
         if val_docs:
             logger.info(f" Evaluating on validation data (epoch_{epoch_idx + 1}_{chunk_idx + 1}) ...")
-            pred_val_docs = self.__call__(val_docs, val_dataloader, val_sample2doc_index, batch_size=batch_size)
+            pred_val_docs = self.__call__(val_docs, val_dataloader, val_sample2doc_index, batch_size=batch_size, verbose=True)
             metrics = EDMetrics(pred_val_docs)
             metrics.summary(logger)
             val_score = metrics.get_f1()
@@ -365,6 +365,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
         scheduler = get_scheduler(self.config.to_dict(), optimizer, len_train_data, logger)
 
         resume_epoch_idx = None
+        resume_chunk_idx = None
         val_best_score = 0.0
         best_model_path = None
         if resume and checkpoint_path:
@@ -376,7 +377,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
             val_dataloader, val_sample2doc_index = self._process_inputs(val_docs, batch_size=batch_size, is_training=False)
             if not (resume and checkpoint_path):
                 logger.info(" Evaluating on validation data (initial) ...")
-                pred_val_docs = self.__call__(val_docs, val_dataloader, val_sample2doc_index, batch_size=batch_size)
+                pred_val_docs = self.__call__(val_docs, val_dataloader, val_sample2doc_index, batch_size=batch_size, verbose=True)
                 metrics = EDMetrics(pred_val_docs)
                 metrics.summary(logger)
                 val_best_score = metrics.get_f1()
@@ -482,7 +483,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
             val_dataloader, val_sample2doc_index = self._process_inputs(val_docs, batch_size=batch_size, is_training=False, verbose=True)
             if not (resume and checkpoint_path):
                 logger.info(" Evaluating on validation data (initial) ...")
-                pred_val_docs = self.__call__(val_docs, val_dataloader, val_sample2doc_index, batch_size=batch_size)
+                pred_val_docs = self.__call__(val_docs, val_dataloader, val_sample2doc_index, batch_size=batch_size, verbose=True)
                 metrics = EDMetrics(pred_val_docs)
                 metrics.summary(logger)
                 val_best_score = metrics.get_f1()
