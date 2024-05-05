@@ -86,7 +86,7 @@ if __name__ == "__main__":
         print(f"Number of train chunks: {len(train_datasets_paths)}\n{train_datasets_paths}")
         logger.info(f"Number of train chunks: {len(train_datasets_paths)}\n{train_datasets_paths}")
         print(f"Train dataset size: {len_train_data}")
-        logger.info(f"Train dataset size: {len(len_train_data)}")
+        logger.info(f"Train dataset size: {len_train_data}")
 
         model.train_on_chunks(
             train_datasets_paths=train_datasets_paths, 
