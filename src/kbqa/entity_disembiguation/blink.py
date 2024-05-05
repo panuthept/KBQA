@@ -172,15 +172,14 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
             batch, 
             is_training: bool = False, 
     ) -> Tuple[Tensor, Tensor]:
-        with autocast(enabled=self.config.fp16):
-            batch = tuple(t.to(self.device) for t in batch)
-            context_input, label_input, padding_masks = batch
-            if is_training:
+        batch = tuple(t.to(self.device) for t in batch)
+        context_input, label_input, padding_masks = batch
+        if is_training:
+            loss, logits = self.crossencoder(context_input, label_input, self.config.max_context_length)
+        else:
+            with torch.no_grad():
                 loss, logits = self.crossencoder(context_input, label_input, self.config.max_context_length)
-            else:
-                with torch.no_grad():
-                    loss, logits = self.crossencoder(context_input, label_input, self.config.max_context_length)
-            logits = torch.where(padding_masks, logits, torch.tensor(-1e9).to(self.device))
+        logits = torch.where(padding_masks, logits, torch.tensor(-1e9).to(self.device))
         return loss, logits
     
     def __call__(
@@ -265,7 +264,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
             train_dataloader: DataLoader,
             optimizer,
             scheduler,
-            scaler,
+            scaler: GradScaler,
             val_docs: List[Doc] | None = None,
             val_dataloader: DataLoader | None = None,
             val_sample2doc_index: List[Tuple[int, int]] | None = None,
@@ -276,29 +275,36 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
             model_output_path: str = "models/blink_crossencoder",
             logger: logging.Logger | None = None,
     ):
+        torch.cuda.empty_cache()
+        optimizer.zero_grad()
+        self.crossencoder.model.train()
+
         part = 0
+        scale = 0
         train_loss = 0
         for step, batch in enumerate(tqdm(train_dataloader, desc="Batch")):
-            loss, _ = self.forward(batch, is_training=True)
+            with autocast(enabled=self.config.fp16):
+                loss, _ = self.forward(batch, is_training=True)
 
-            if grad_acc_steps > 1:
-                loss = loss / grad_acc_steps
+                if grad_acc_steps > 1:
+                    loss = loss / grad_acc_steps
             
             train_loss += loss.item()
             scaler.scale(loss).backward()
-
-            if (step + 1) % (self.config.print_interval * grad_acc_steps) == 0:
-                train_loss = train_loss / (self.config.print_interval * grad_acc_steps)
-                logger.info(f" Epoch: {epoch_idx + 1}, Chunk: {chunk_idx + 1}, Step: {step + 1}, Train Loss: {train_loss}")
-                train_loss = 0
 
             if (step + 1) % grad_acc_steps == 0:
                 scaler.unscale_(optimizer)
                 torch.nn.utils.clip_grad_norm_(self.crossencoder.model.parameters(), self.config.max_grad_norm)
                 scaler.step(optimizer)
+                scale = scaler.get_scale()
                 scaler.update()
                 optimizer.zero_grad()
                 scheduler.step()
+
+            if (step + 1) % (self.config.print_interval * grad_acc_steps) == 0:
+                train_loss = train_loss / (self.config.print_interval * grad_acc_steps)
+                logger.info(f" Epoch: {epoch_idx + 1}, Chunk: {chunk_idx + 1}, Step: {step + 1}, Train Loss: {train_loss}, Scale: {scale}")
+                train_loss = 0
 
             if (step + 1) % (self.config.eval_interval * grad_acc_steps) == 0:
                 if val_docs:
