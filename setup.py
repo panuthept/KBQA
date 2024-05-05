@@ -13,6 +13,6 @@ setup(
     author='Panuthep Tasawong',
     author_email='panuthep.t_s20@vistec.ac.th',
     description='Question Answering over Knowledge Base (KBQA)',
-    python_requires='==3.11',
+    python_requires='>=3.11',
     # install_requires=dependencies
 )
