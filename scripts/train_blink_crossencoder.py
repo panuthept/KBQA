@@ -74,6 +74,7 @@ if __name__ == "__main__":
     config = BlinkCrossEncoderConfig(
         bert_model="./data/entity_disembiguation/blink/crossencoder",
         train_batch_size=args.batch_size,
+        num_train_epochs=2,
         fp16=True,
     )
     model = BlinkCrossEncoder(entity_corpus, config)
