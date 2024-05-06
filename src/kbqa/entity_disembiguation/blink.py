@@ -113,7 +113,7 @@ class BlinkCrossEncoderIterableDataset(IterableDataset):
                     in_kb_cand_ids = [entity.id if entity.id in self.id2title and entity.id in self.id2text else self.entity_pad_id for entity in span.cand_entities]
                     if len(in_kb_cand_ids) == 0:
                         continue
-                    
+
                     in_kb_cand_ids = [cand_id for cand_id in in_kb_cand_ids if cand_id != span.gold_entity.id]
 
                     train_cand_ids = [span.gold_entity.id]
@@ -127,7 +127,7 @@ class BlinkCrossEncoderIterableDataset(IterableDataset):
 
                         negative_cand_ids = hard_negative_cand_ids + rand_negative_cand_ids
                     else:
-                        negative_cand_ids = train_cand_ids[:self.sample_k_candidates - 1]
+                        negative_cand_ids = in_kb_cand_ids[:self.sample_k_candidates - 1]
                         negative_cand_ids = negative_cand_ids + [self.entity_pad_id] * (self.sample_k_candidates - 1 - len(negative_cand_ids))
                     train_cand_ids.extend(negative_cand_ids)
 
