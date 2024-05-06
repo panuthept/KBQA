@@ -53,7 +53,8 @@ if __name__ == "__main__":
     parser.add_argument("--val_dataset_path", type=str, required=True)
     parser.add_argument("--entity_corpus_path", type=str, required=True)
     parser.add_argument("--num_train_epochs", type=int, default=1)
-    parser.add_argument("--batch_size", type=int, default=8)
+    parser.add_argument("--train_batch_size", type=int, default=8)
+    parser.add_argument("--val_batch_size", type=int, default=8)
     parser.add_argument("--fp16", action="store_true")
     parser.add_argument("--model_output_path", type=str, default="./models/blink_crossencoder")
     # parser.add_argument("--train_on_chunks", action="store_true")
@@ -76,7 +77,7 @@ if __name__ == "__main__":
 
     config = BlinkCrossEncoderConfig(
         bert_model="./data/entity_disembiguation/blink/crossencoder_base",
-        train_batch_size=args.batch_size,
+        train_batch_size=args.train_batch_size,
         num_train_epochs=args.num_train_epochs,
         fp16=args.fp16,
     )
@@ -93,7 +94,7 @@ if __name__ == "__main__":
     model.train(
         train_dataloader=train_dataloader, 
         val_docs=val_docs, 
-        batch_size=args.batch_size,
+        val_batch_size=args.val_batch_size,
         model_output_path=args.model_output_path,
     )
 

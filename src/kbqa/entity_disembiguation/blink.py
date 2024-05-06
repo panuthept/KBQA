@@ -1,6 +1,6 @@
 import os
-import math
 import time
+import json
 import torch
 import random
 import logging
@@ -379,7 +379,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
             val_docs: List[Doc] | None = None,
             val_dataloader: DataLoader | None = None,
             val_sample2doc_index: List[Tuple[int, int]] | None = None,
-            batch_size: int = 1,
+            val_batch_size: int = 1,
             grad_acc_steps: int = 1,
             epoch_idx: int = 0,
             chunk_idx: int = 0,
@@ -421,7 +421,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
             if (step + 1) % (self.config.eval_interval * grad_acc_steps) == 0:
                 if val_docs:
                     logger.info(f" Evaluating on validation data (epoch_{epoch_idx + 1}_{chunk_idx + 1}_{part + 1}) ...")
-                    pred_val_docs = self.__call__(val_docs, val_dataloader, val_sample2doc_index, batch_size=batch_size, verbose=True)
+                    pred_val_docs = self.__call__(val_docs, val_dataloader, val_sample2doc_index, batch_size=val_batch_size, verbose=True)
                     metrics = EDMetrics(pred_val_docs)
                     metrics.summary(logger)
                     val_score = metrics.get_f1()
@@ -441,7 +441,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
         
         if val_docs:
             logger.info(f" Evaluating on validation data (epoch_{epoch_idx + 1}_{chunk_idx + 1}) ...")
-            pred_val_docs = self.__call__(val_docs, val_dataloader, val_sample2doc_index, batch_size=batch_size, verbose=True)
+            pred_val_docs = self.__call__(val_docs, val_dataloader, val_sample2doc_index, batch_size=val_batch_size, verbose=True)
             metrics = EDMetrics(pred_val_docs)
             metrics.summary(logger)
             val_score = metrics.get_f1()
@@ -467,7 +467,8 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
             self,
             train_datasets_paths: List[str],
             val_docs: List[Doc] | None = None, 
-            batch_size: int = 1,
+            train_batch_size: int = 1,
+            val_batch_size: int = 1,
             len_train_data: int = 1000000,
             resume: bool = False,
             checkpoint_path: str = None,
@@ -502,10 +503,10 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
         
         # Prepare validation data
         if val_docs:
-            val_dataloader, val_sample2doc_index = self._process_inputs(val_docs, batch_size=batch_size, is_training=False)
+            val_dataloader, val_sample2doc_index = self._process_inputs(val_docs, batch_size=val_batch_size, is_training=False)
             if not (resume and checkpoint_path):
                 logger.info(" Evaluating on validation data (initial) ...")
-                pred_val_docs = self.__call__(val_docs, val_dataloader, val_sample2doc_index, batch_size=batch_size, verbose=True)
+                pred_val_docs = self.__call__(val_docs, val_dataloader, val_sample2doc_index, batch_size=val_batch_size, verbose=True)
                 metrics = EDMetrics(pred_val_docs)
                 metrics.summary(logger)
                 val_best_score = metrics.get_f1()
@@ -535,7 +536,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
                     continue
 
                 train_dataset: Dataset = torch.load(train_dataset_path)
-                train_dataloader = DataLoader(train_dataset, sampler=RandomSampler(train_dataset), batch_size=batch_size)
+                train_dataloader = DataLoader(train_dataset, sampler=RandomSampler(train_dataset), batch_size=train_batch_size)
 
                 val_best_score = self._train_epoch(
                     train_dataloader,
@@ -545,7 +546,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
                     val_docs=val_docs,
                     val_dataloader=val_dataloader,
                     val_sample2doc_index=val_sample2doc_index,
-                    batch_size=batch_size,
+                    val_batch_size=val_batch_size,
                     grad_acc_steps=grad_acc_steps,
                     epoch_idx=epoch_idx,
                     chunk_idx=chunk_idx,
@@ -569,7 +570,8 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
             train_dataset: Dataset | None = None,
             train_dataloader: DataLoader | None = None,
             val_docs: List[Doc] | None = None, 
-            batch_size: int = 1,
+            train_batch_size: int = 1,
+            val_batch_size: int = 1,
             resume: bool = False,
             checkpoint_path: str = None,
             model_output_path: str = "models/blink_crossencoder",
@@ -593,9 +595,9 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
         # Prepare training data
         if train_dataloader is None:
             if train_dataset is None:
-                train_dataloader, _ = self._process_inputs(train_docs, batch_size=batch_size, is_training=True, verbose=True)
+                train_dataloader, _ = self._process_inputs(train_docs, batch_size=train_batch_size, is_training=True, verbose=True)
             else:
-                train_dataloader = DataLoader(train_dataset, sampler=RandomSampler(train_dataset), batch_size=batch_size)
+                train_dataloader = DataLoader(train_dataset, sampler=RandomSampler(train_dataset), batch_size=train_batch_size)
 
         # Prepare optimizer and sheduler
         optimizer = get_optimizer(self.crossencoder.model, self.config.to_dict())
@@ -611,10 +613,10 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
         
         # Prepare validation data
         if val_docs:
-            val_dataloader, val_sample2doc_index = self._process_inputs(val_docs, batch_size=batch_size, is_training=False, verbose=True)
+            val_dataloader, val_sample2doc_index = self._process_inputs(val_docs, batch_size=val_batch_size, is_training=False, verbose=True)
             if not (resume and checkpoint_path):
                 logger.info(" Evaluating on validation data (initial) ...")
-                pred_val_docs = self.__call__(val_docs, val_dataloader, val_sample2doc_index, batch_size=batch_size, verbose=True)
+                pred_val_docs = self.__call__(val_docs, val_dataloader, val_sample2doc_index, batch_size=val_batch_size, verbose=True)
                 metrics = EDMetrics(pred_val_docs)
                 metrics.summary(logger)
                 val_best_score = metrics.get_f1()
@@ -646,7 +648,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
                 val_docs=val_docs,
                 val_dataloader=val_dataloader,
                 val_sample2doc_index=val_sample2doc_index,
-                batch_size=batch_size,
+                val_batch_size=val_batch_size,
                 grad_acc_steps=grad_acc_steps,
                 epoch_idx=epoch_idx,
                 val_best_score=val_best_score,
@@ -763,8 +765,6 @@ class BlinkCrossEncoderCFT(BlinkCrossEncoder):
 
 
 if __name__ == "__main__":
-    import json
-    from kbqa.utils.data_types import Span
     from kbqa.utils.data_utils import get_entity_corpus
 
     entity_corpus = get_entity_corpus("./data/entity_corpus.jsonl")
