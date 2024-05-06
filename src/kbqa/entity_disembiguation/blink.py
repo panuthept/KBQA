@@ -47,9 +47,9 @@ class BlinkCrossEncoderConfig:
     learning_rate: float = 3e-5
     fp16: bool = False
     seed: int = 52313
-    train_batch_size: int = 1
+    train_batch_size: int = 8
     gradient_accumulation_steps: int = 1
-    num_train_epochs: int = 5
+    num_train_epochs: int = 2
     warmup_proportion: float = 0.1
     print_interval: int = 10
     eval_interval: int = 2000
@@ -75,11 +75,9 @@ class BlinkCrossEncoderIterableDataset(IterableDataset):
             entity_corpus: Dict[str, Entity], 
             config: BlinkCrossEncoderConfig,
             entity_pad_id: str = "Q0",
-            batch_size: int = 8,
             sample_k_candidates: int = 5,
     ):
         self.config = config
-        self.batch_size = batch_size
         self.entity_pad_id = entity_pad_id
         self.sample_k_candidates = sample_k_candidates
 
@@ -158,10 +156,10 @@ class BlinkCrossEncoderIterableDataset(IterableDataset):
                     context_input, candidate_input, self.config.max_seq_length
                 )
 
-                batch_num = math.ceil(len(context_input) / self.batch_size)
+                batch_num = len(context_input) // self.config.train_batch_size
                 for i in range(batch_num):
-                    start = i * self.batch_size
-                    end = (i + 1) * self.batch_size
+                    start = i * self.config.train_batch_size
+                    end = (i + 1) * self.config.train_batch_size
                     yield context_input[start:end], label_input[start:end], padding_masks[start:end]
 
 
@@ -760,13 +758,12 @@ if __name__ == "__main__":
         model.tokenizer,
         entity_corpus,
         config,
-        batch_size=8,
     )
-    for batch in train_dataset:
+    span_count = 0
+    for batch in tqdm(train_dataset):
         context_input, label_input, padding_masks = batch
-        print(context_input.size())
-        print(label_input.size())
-        print(padding_masks.size())
+        span_count += context_input.size(0)
+    print(f"Total number of spans: {span_count}")
 
     # entity_corpus = get_entity_corpus("./data/entity_corpus.jsonl")
     # config = BlinkCrossEncoderConfig.from_dict(json.load(open("crossencoder_wiki_large.json")))
