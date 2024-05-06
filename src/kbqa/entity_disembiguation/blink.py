@@ -111,10 +111,10 @@ class BlinkCrossEncoderIterableDataset(IterableDataset):
                         continue
 
                     in_kb_cand_ids = [entity.id if entity.id in self.id2title and entity.id in self.id2text else self.entity_pad_id for entity in span.cand_entities]
-                    in_kb_cand_ids = [cand_id for cand_id in in_kb_cand_ids if cand_id != self.entity_pad_id]
-
                     if len(in_kb_cand_ids) == 0:
                         continue
+                    
+                    in_kb_cand_ids = [cand_id for cand_id in in_kb_cand_ids if cand_id != span.gold_entity.id]
 
                     train_cand_ids = [span.gold_entity.id]
                     if len(in_kb_cand_ids) >= self.sample_k_candidates - 1:
