@@ -110,7 +110,8 @@ class BlinkCrossEncoderIterableDataset(IterableDataset):
                     if span.cand_entities is None:
                         continue
 
-                    in_kb_cand_ids = [entity.id if entity.id in self.id2title and entity.id in self.id2text else self.entity_pad_id for entity in span.cand_entities if entity.id != span.gold_entity.id]
+                    in_kb_cand_ids = [entity.id if entity.id in self.id2title and entity.id in self.id2text else self.entity_pad_id for entity in span.cand_entities]
+                    in_kb_cand_ids = [cand_id for cand_id in in_kb_cand_ids if cand_id != self.entity_pad_id]
 
                     if len(in_kb_cand_ids) == 0:
                         continue
