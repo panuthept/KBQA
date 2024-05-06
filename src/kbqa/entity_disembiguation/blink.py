@@ -1,4 +1,5 @@
 import os
+import math
 import time
 import torch
 import random
@@ -139,9 +140,6 @@ class BlinkCrossEncoderIterableDataset(IterableDataset):
                     labels.append(span.gold_entity.id)
                     nns.append(train_cand_ids)
 
-                print(f"labels:\n{labels}")
-                print(f"nns:\n{nns}")
-
                 padding_masks = torch.tensor([[entity_id != self.entity_pad_id for entity_id in nn] for nn in nns])
         
                 context_input, candidate_input, label_input = prepare_crossencoder_data(
@@ -160,11 +158,7 @@ class BlinkCrossEncoderIterableDataset(IterableDataset):
                     context_input, candidate_input, self.config.max_seq_length
                 )
 
-                batch_num = len(context_input) // self.batch_size
-                print(f"batch_num: {batch_num}")
-                print(f"context_input:\n{context_input}")
-                print(f"label_input:\n{label_input}")
-                print(f"padding_masks:\n{padding_masks}")
+                batch_num = math.ceil(len(context_input) / self.batch_size)
                 for i in range(batch_num):
                     start = i * self.batch_size
                     end = (i + 1) * self.batch_size
@@ -769,12 +763,10 @@ if __name__ == "__main__":
         batch_size=8,
     )
     for batch in train_dataset:
-        print(batch)
         context_input, label_input, padding_masks = batch
         print(context_input.size())
         print(label_input.size())
         print(padding_masks.size())
-        break
 
     # entity_corpus = get_entity_corpus("./data/entity_corpus.jsonl")
     # config = BlinkCrossEncoderConfig.from_dict(json.load(open("crossencoder_wiki_large.json")))
