@@ -140,8 +140,7 @@ def get_optimizer(model, params):
     )
 
 
-def get_scheduler(params, optimizer, len_train_data, logger):
-    batch_size = params["train_batch_size"]
+def get_scheduler(params, optimizer, len_train_data, logger, batch_size: int = 1):
     grad_acc = params["gradient_accumulation_steps"]
     epochs = params["num_train_epochs"]
 
