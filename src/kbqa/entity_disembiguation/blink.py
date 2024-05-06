@@ -9,9 +9,9 @@ from copy import deepcopy
 from tqdm import tqdm, trange
 from dataclasses import dataclass
 from kbqa.utils.metrics import EDMetrics
-from typing import Tuple, List, Dict, Any
 from kbqa.utils.data_types import Doc, Entity
 from torch.cuda.amp import autocast, GradScaler
+from typing import Tuple, List, Dict, Any, Iterator
 from torch.utils.data import Dataset, IterableDataset
 from kbqa.utils.blink_utils.candidate_ranking import utils
 from kbqa.utils.blink_utils.biencoder.biencoder import BiEncoderRanker
@@ -74,9 +74,78 @@ class BlinkCrossEncoderIterableDataset(IterableDataset):
             entity_corpus: Dict[str, Entity], 
             config: BlinkCrossEncoderConfig,
             entity_pad_id: str = "Q0",
-            max_spans_per_doc: int = 30,
+            batch_size: int = 8,
+            sample_k_candidates: int = 5,
     ):
+        self.config = config
+        self.batch_size = batch_size
+        self.entity_pad_id = entity_pad_id
+        self.sample_k_candidates = sample_k_candidates
+
         self.dataset_path = dataset_path
+        self.tokenizer = tokenizer
+        self.entity_corpus = entity_corpus
+
+        self.id2title = {entity.id: entity.name for entity in entity_corpus.values()}
+        self.id2text = {entity.id: entity.desc for entity in entity_corpus.values()}
+        self.entity_pad_id = entity_pad_id
+
+    def __iter__(self) -> Iterator[Tuple[Tensor, Tensor, Tensor]]:
+        with open(self.dataset_path, "r") as f:
+            for line in f:
+                doc = Doc.from_dict(json.loads(line))
+
+                samples = []
+                labels = []
+                nns = []
+                for span in doc["spans"]:
+                    mention = doc.text[span.start:span.start + span.length]
+                    context_left = doc.text[:span.start]
+                    context_right = doc.text[span.start + span.length:]
+                    in_kb_cand_ids = [entity.id if entity.id in self.id2title and entity.id in self.id2text else self.entity_pad_id for entity in span.cand_entities if entity.id != span.gold_entity.id]
+
+                    train_cand_ids = [span.gold_entity.id]
+                    if len(in_kb_cand_ids) >= self.sample_k_candidates - 1:
+                        hard_negative_num = (self.sample_k_candidates - 1) // 2
+                        rand_negative_num = self.sample_k_candidates - 1 - hard_negative_num
+
+                        hard_negative_cand_ids = in_kb_cand_ids[:hard_negative_num]
+                        rand_negative_cand_ids = np.random.choice(in_kb_cand_ids[hard_negative_num:], rand_negative_num, replace=False)
+
+                        negative_cand_ids = hard_negative_cand_ids + rand_negative_cand_ids
+                    else:
+                        negative_cand_ids = train_cand_ids[:self.sample_k_candidates - 1]
+                        negative_cand_ids = negative_cand_ids + [self.entity_pad_id] * (self.sample_k_candidates - 1 - len(negative_cand_ids))
+                    train_cand_ids.extend(negative_cand_ids)
+
+                    samples.append({
+                        "mention": mention,
+                        "context_left": context_left,
+                        "context_right": context_right
+                    })
+                    labels.append(span.gold_entity.id)
+                    nns.append(train_cand_ids)
+
+                padding_masks = torch.tensor([[entity_id != self.entity_pad_id for entity_id in nn] for nn in nns])
+        
+                context_input, candidate_input, label_input = prepare_crossencoder_data(
+                    self.tokenizer, 
+                    samples, 
+                    labels, 
+                    nns, 
+                    self.id2title, 
+                    self.id2text, 
+                    keep_all=False,
+                    max_context_length=self.config.max_context_length,
+                    max_cand_length=self.config.max_cand_length,
+                    verbose=False,
+                )
+                context_input = modify(
+                    context_input, candidate_input, self.config.max_seq_length
+                )
+                print(padding_masks.size())
+                print(context_input.size())
+                print(label_input.size())
 
 
 class BlinkCrossEncoder(EntityDisambiguationModel):
@@ -658,112 +727,134 @@ if __name__ == "__main__":
     from kbqa.utils.data_utils import get_entity_corpus
 
     entity_corpus = get_entity_corpus("./data/entity_corpus.jsonl")
-    config = BlinkCrossEncoderConfig.from_dict(json.load(open("crossencoder_wiki_large.json")))
-    config.path_to_model = "./crossencoder_wiki_large.bin"
+    print(f"Entities corpus size: {len(entity_corpus)}")
+
+    config = BlinkCrossEncoderConfig(
+        bert_model="./data/entity_disembiguation/blink/crossencoder",
+        train_batch_size=8,
+        num_train_epochs=2,
+        fp16=True,
+    )
+    model = BlinkCrossEncoder(entity_corpus, config)
+
+    train_dataset = BlinkCrossEncoderIterableDataset(
+        "./data/datasets/wikipedia/training_dataset_with_candidates.jsonl",
+        model.tokenizer,
+        entity_corpus,
+        config,
+        batch_size=8,
+    )
+    for batch in train_dataset:
+        print(batch)
+        break
+
+    # entity_corpus = get_entity_corpus("./data/entity_corpus.jsonl")
+    # config = BlinkCrossEncoderConfig.from_dict(json.load(open("crossencoder_wiki_large.json")))
+    # config.path_to_model = "./crossencoder_wiki_large.bin"
 
     # config = json.load(open("crossencoder_wiki_large.json"))
     # config["cft_weight"] = 0.1
     # blink_crossencoder = BlinkCrossEncoderCFT(entity_corpus, config)
-    blink_crossencoder = BlinkCrossEncoder(entity_corpus, config)
+    # blink_crossencoder = BlinkCrossEncoder(entity_corpus, config)
 
-    train_docs = [
-        Doc(
-            text="Is Joe Biden the president of the United States?",
-            spans=[
-                Span(
-                    start=3, 
-                    length=9, 
-                    surface_form="Joe Biden",
-                    gold_entity=Entity(id="Q6279"),
-                    cand_entities=[
-                        Entity(id="Q6279"),
-                        Entity(id="Q65053339"),
-                        Entity(id="Q63241885"),
-                    ]
-                ),
-                Span(
-                    start=34, 
-                    length=13, 
-                    surface_form="United States",
-                    gold_entity=Entity(id="Q30"),
-                    cand_entities=[
-                        Entity(id="Q30"),
-                        Entity(id="Q11268"),
-                        Entity(id="Q35657"),
-                    ]
-                )
-            ]
-        ),
-        Doc(
-            text="What is the capital of France?",
-            spans=[
-                Span(
-                    start=23, 
-                    length=6, 
-                    surface_form="France",
-                    gold_entity=Entity(id="Q142"),
-                    cand_entities=[
-                        Entity(id="Q47774"),
-                        Entity(id="Q142"),
-                        Entity(id="Q193563"),
-                    ]
-                )
-            ]
-        ),
-        Doc(
-            text="Michael Jordan published a new paper on machine learning.",
-            spans=[
-                Span(
-                    start=0, 
-                    length=14, 
-                    surface_form="Michael Jordan",
-                    gold_entity=Entity(id="Q3308285"),
-                    cand_entities=[
-                        Entity(id="Q41421"),
-                        Entity(id="Q27069141"),
-                        Entity(id="Q1928047"),
-                        Entity(id="Q65029442"),
-                        Entity(id="Q108883102"),
-                        Entity(id="Q3308285"),
-                    ]
-                ),
-                Span(
-                    start=40, 
-                    length=16, 
-                    surface_form="machine learning",
-                    gold_entity=Entity(id="Q2539"),
-                    cand_entities=[
-                        Entity(id="Q2539"),
-                        Entity(id="Q6723676"),
-                        Entity(id="Q108371168"),
-                    ]
-                )
-            ]
-        ),
-    ]
-    test_docs = [
-        Doc(
-            text="What year did Michael Jordan win his first NBA championship?",
-            spans=[
-                Span(
-                    start=14, 
-                    length=14, 
-                    surface_form="Michael Jordan",
-                    gold_entity=Entity(id="Q41421"),
-                    cand_entities=[
-                        Entity(id="Q41421"),
-                        Entity(id="Q27069141"),
-                        Entity(id="Q1928047"),
-                        Entity(id="Q65029442"),
-                        Entity(id="Q108883102"),
-                        Entity(id="Q3308285"),
-                    ]
-                )
-            ]
-        )
-    ]
+    # train_docs = [
+    #     Doc(
+    #         text="Is Joe Biden the president of the United States?",
+    #         spans=[
+    #             Span(
+    #                 start=3, 
+    #                 length=9, 
+    #                 surface_form="Joe Biden",
+    #                 gold_entity=Entity(id="Q6279"),
+    #                 cand_entities=[
+    #                     Entity(id="Q6279"),
+    #                     Entity(id="Q65053339"),
+    #                     Entity(id="Q63241885"),
+    #                 ]
+    #             ),
+    #             Span(
+    #                 start=34, 
+    #                 length=13, 
+    #                 surface_form="United States",
+    #                 gold_entity=Entity(id="Q30"),
+    #                 cand_entities=[
+    #                     Entity(id="Q30"),
+    #                     Entity(id="Q11268"),
+    #                     Entity(id="Q35657"),
+    #                 ]
+    #             )
+    #         ]
+    #     ),
+    #     Doc(
+    #         text="What is the capital of France?",
+    #         spans=[
+    #             Span(
+    #                 start=23, 
+    #                 length=6, 
+    #                 surface_form="France",
+    #                 gold_entity=Entity(id="Q142"),
+    #                 cand_entities=[
+    #                     Entity(id="Q47774"),
+    #                     Entity(id="Q142"),
+    #                     Entity(id="Q193563"),
+    #                 ]
+    #             )
+    #         ]
+    #     ),
+    #     Doc(
+    #         text="Michael Jordan published a new paper on machine learning.",
+    #         spans=[
+    #             Span(
+    #                 start=0, 
+    #                 length=14, 
+    #                 surface_form="Michael Jordan",
+    #                 gold_entity=Entity(id="Q3308285"),
+    #                 cand_entities=[
+    #                     Entity(id="Q41421"),
+    #                     Entity(id="Q27069141"),
+    #                     Entity(id="Q1928047"),
+    #                     Entity(id="Q65029442"),
+    #                     Entity(id="Q108883102"),
+    #                     Entity(id="Q3308285"),
+    #                 ]
+    #             ),
+    #             Span(
+    #                 start=40, 
+    #                 length=16, 
+    #                 surface_form="machine learning",
+    #                 gold_entity=Entity(id="Q2539"),
+    #                 cand_entities=[
+    #                     Entity(id="Q2539"),
+    #                     Entity(id="Q6723676"),
+    #                     Entity(id="Q108371168"),
+    #                 ]
+    #             )
+    #         ]
+    #     ),
+    # ]
+    # test_docs = [
+    #     Doc(
+    #         text="What year did Michael Jordan win his first NBA championship?",
+    #         spans=[
+    #             Span(
+    #                 start=14, 
+    #                 length=14, 
+    #                 surface_form="Michael Jordan",
+    #                 gold_entity=Entity(id="Q41421"),
+    #                 cand_entities=[
+    #                     Entity(id="Q41421"),
+    #                     Entity(id="Q27069141"),
+    #                     Entity(id="Q1928047"),
+    #                     Entity(id="Q65029442"),
+    #                     Entity(id="Q108883102"),
+    #                     Entity(id="Q3308285"),
+    #                 ]
+    #             )
+    #         ]
+    #     )
+    # ]
 
-    pred_docs = blink_crossencoder(train_docs)
-    print(pred_docs)
+    # pred_docs = blink_crossencoder(train_docs)
+    # print(pred_docs)
     # blink_crossencoder.eval(test_docs)
     # blink_crossencoder.train(train_docs, val_docs=test_docs, batch_size=10)
