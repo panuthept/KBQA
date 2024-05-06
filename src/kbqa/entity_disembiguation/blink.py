@@ -138,6 +138,7 @@ class BlinkCrossEncoderIterableDataset(IterableDataset):
                     labels.append(span.gold_entity.id)
                     nns.append(train_cand_ids)
 
+                print(f"labels:\n{labels}")
                 print(f"nns:\n{nns}")
 
                 padding_masks = torch.tensor([[entity_id != self.entity_pad_id for entity_id in nn] for nn in nns])
