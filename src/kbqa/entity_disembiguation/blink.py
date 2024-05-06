@@ -273,9 +273,10 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
             grad_acc_steps: int = 1,
             epoch_idx: int = 0,
             chunk_idx: int = 0,
+            val_best_score: float = 0,
             model_output_path: str = "models/blink_crossencoder",
             logger: logging.Logger | None = None,
-    ):
+    ) -> float:
         torch.cuda.empty_cache()
         optimizer.zero_grad()
         self.crossencoder.model.train()
@@ -350,6 +351,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
         # Save checkpoint
         checkpoint_path = os.path.join(model_output_path, f"checkpoint_{epoch_idx + 1}_{chunk_idx + 1}")
         self.save_checkpoint(checkpoint_path, optimizer, scheduler, scaler, epoch_idx, chunk_idx, val_best_score, best_model_path)
+        return val_best_score
 
     def train_on_chunks(
             self,
@@ -425,7 +427,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
                 train_dataset: Dataset = torch.load(train_dataset_path)
                 train_dataloader = DataLoader(train_dataset, sampler=RandomSampler(train_dataset), batch_size=batch_size)
 
-                self._train_epoch(
+                val_best_score = self._train_epoch(
                     train_dataloader,
                     optimizer,
                     scheduler,
@@ -437,6 +439,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
                     grad_acc_steps=grad_acc_steps,
                     epoch_idx=epoch_idx,
                     chunk_idx=chunk_idx,
+                    val_best_score=val_best_score,
                     model_output_path=model_output_path,
                     logger=logger,
                 )
@@ -525,7 +528,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
         for epoch_idx in trange(int(num_train_epochs), desc="Epoch"):
             if resume_epoch_idx is not None and epoch_idx < resume_epoch_idx:
                 continue
-            self._train_epoch(
+            val_best_score = self._train_epoch(
                 train_dataloader,
                 optimizer,
                 scheduler,
@@ -536,6 +539,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
                 batch_size=batch_size,
                 grad_acc_steps=grad_acc_steps,
                 epoch_idx=epoch_idx,
+                val_best_score=val_best_score,
                 model_output_path=model_output_path,
                 logger=logger,
             )
