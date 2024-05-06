@@ -138,6 +138,8 @@ class BlinkCrossEncoderIterableDataset(IterableDataset):
                     labels.append(span.gold_entity.id)
                     nns.append(train_cand_ids)
 
+                print(f"nns:\n{nns}")
+
                 padding_masks = torch.tensor([[entity_id != self.entity_pad_id for entity_id in nn] for nn in nns])
         
                 context_input, candidate_input, label_input = prepare_crossencoder_data(
@@ -157,7 +159,10 @@ class BlinkCrossEncoderIterableDataset(IterableDataset):
                 )
 
                 batch_num = len(context_input) // self.batch_size
-                print(batch_num)
+                print(f"batch_num: {batch_num}")
+                print(f"context_input:\n{context_input}")
+                print(f"label_input:\n{label_input}")
+                print(f"padding_masks:\n{padding_masks}")
                 for i in range(batch_num):
                     start = i * self.batch_size
                     end = (i + 1) * self.batch_size
