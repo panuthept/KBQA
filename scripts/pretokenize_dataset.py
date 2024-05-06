@@ -49,8 +49,8 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset_path", type=str, required=True)
-    parser.add_argument("--output_path", type=str, required=True)
-    parser.add_argument("--dataset_size", type=int, default=100000)
+    # parser.add_argument("--output_path", type=str, required=True)
+    parser.add_argument("--dataset_size", type=int, default=None)
     parser.add_argument("--max_samples", type=int, default=None)
     parser.add_argument("--train_start_index", type=int, default=0)
     parser.add_argument("--train_end_index", type=int, default=None)
