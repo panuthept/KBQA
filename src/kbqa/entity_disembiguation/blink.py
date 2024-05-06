@@ -157,11 +157,10 @@ class BlinkCrossEncoderIterableDataset(IterableDataset):
                 )
 
                 batch_num = len(context_input) // self.batch_size
-                print(batch_num)
-                print(padding_masks.size())
-                print(context_input.size())
-                print(label_input.size())
-                yield padding_masks, label_input, padding_masks
+                for i in range(batch_num):
+                    start = i * self.batch_size
+                    end = (i + 1) * self.batch_size
+                    yield padding_masks[start:end], label_input[start:end], padding_masks[start:end]
 
 
 class BlinkCrossEncoder(EntityDisambiguationModel):
@@ -763,6 +762,10 @@ if __name__ == "__main__":
     )
     for batch in train_dataset:
         print(batch)
+        context_input, label_input, padding_masks = batch
+        print(padding_masks.size())
+        print(context_input.size())
+        print(label_input.size())
         break
 
     # entity_corpus = get_entity_corpus("./data/entity_corpus.jsonl")
