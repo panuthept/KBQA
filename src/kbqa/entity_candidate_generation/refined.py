@@ -111,7 +111,7 @@ class ReFinEDCandidateGenerator(EntityCandidateGenerationModel):
                 if include_gold_entity and span.gold_entity:
                     cand_ids = set(cand_id for cand_id, _ in cands)
                     if span.gold_entity.id not in cand_ids:
-                        cands = cands[:-1] + [(span.gold_entity.id, 0.0)]
+                        cands = [(span.gold_entity.id, 0.0)] + cands[:-1]
                 span.cand_entities = [Entity(id=cand_id, score=cand_score) for cand_id, cand_score in cands]
         return pred_docs
     

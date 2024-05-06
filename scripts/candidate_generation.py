@@ -23,7 +23,7 @@ if __name__ == "__main__":
                     )
                     spans.append(span)
                 docs = [Doc(text=text, spans=spans)]
-                docs = candidate_generator(docs, backward_coref=True, verbose=False)
+                docs = candidate_generator(docs, backward_coref=True, include_gold_entity=True, verbose=False)
                 # Remove padding entities
                 for span in docs[0].spans:
                     span.cand_entities = [entity for entity in span.cand_entities if entity.id != "Q0"]
