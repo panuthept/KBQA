@@ -93,7 +93,11 @@ class BlinkCrossEncoderIterableDataset(IterableDataset):
     def __iter__(self) -> Iterator[Tuple[Tensor, Tensor, Tensor]]:
         with open(self.dataset_path, "r") as f:
             for line in f:
-                doc = Doc.from_dict(json.loads(line))
+                data = json.loads(line)
+                if "spans" not in data:
+                    continue
+
+                doc = Doc.from_dict(data)
 
                 samples = []
                 labels = []
@@ -107,6 +111,9 @@ class BlinkCrossEncoderIterableDataset(IterableDataset):
                         continue
 
                     in_kb_cand_ids = [entity.id if entity.id in self.id2title and entity.id in self.id2text else self.entity_pad_id for entity in span.cand_entities if entity.id != span.gold_entity.id]
+
+                    if len(in_kb_cand_ids) == 0:
+                        continue
 
                     train_cand_ids = [span.gold_entity.id]
                     if len(in_kb_cand_ids) >= self.sample_k_candidates - 1:
@@ -148,9 +155,13 @@ class BlinkCrossEncoderIterableDataset(IterableDataset):
                 context_input = modify(
                     context_input, candidate_input, self.config.max_seq_length
                 )
+
+                batch_num = len(context_input) // self.batch_size
+                print(batch_num)
                 print(padding_masks.size())
                 print(context_input.size())
                 print(label_input.size())
+                yield padding_masks, label_input, padding_masks
 
 
 class BlinkCrossEncoder(EntityDisambiguationModel):
@@ -735,7 +746,7 @@ if __name__ == "__main__":
     print(f"Entities corpus size: {len(entity_corpus)}")
 
     config = BlinkCrossEncoderConfig(
-        bert_model="./data/entity_disembiguation/blink/crossencoder_large",
+        bert_model="./data/entity_disembiguation/blink/crossencoder_base",
         train_batch_size=8,
         num_train_epochs=2,
         fp16=True,
