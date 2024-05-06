@@ -111,6 +111,7 @@ class BlinkCrossEncoderIterableDataset(IterableDataset):
 
                         hard_negative_cand_ids = in_kb_cand_ids[:hard_negative_num]
                         rand_negative_cand_ids = np.random.choice(in_kb_cand_ids[hard_negative_num:], rand_negative_num, replace=False)
+                        rand_negative_cand_ids = rand_negative_cand_ids.tolist()
 
                         negative_cand_ids = hard_negative_cand_ids + rand_negative_cand_ids
                     else:
@@ -730,12 +731,13 @@ if __name__ == "__main__":
     print(f"Entities corpus size: {len(entity_corpus)}")
 
     config = BlinkCrossEncoderConfig(
-        bert_model="./data/entity_disembiguation/blink/crossencoder",
+        bert_model="./data/entity_disembiguation/blink/crossencoder_large",
         train_batch_size=8,
         num_train_epochs=2,
         fp16=True,
     )
     model = BlinkCrossEncoder(entity_corpus, config)
+    # model.crossencoder.save("./data/entity_disembiguation/blink/crossencoder_base")
 
     train_dataset = BlinkCrossEncoderIterableDataset(
         "./data/datasets/wikipedia/training_dataset_with_candidates.jsonl",
