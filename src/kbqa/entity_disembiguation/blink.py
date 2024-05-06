@@ -76,10 +76,12 @@ class BlinkCrossEncoderIterableDataset(IterableDataset):
             config: BlinkCrossEncoderConfig,
             entity_pad_id: str = "Q0",
             sample_k_candidates: int = 5,
+            num_spans: int = 200000000,
     ):
         self.config = config
         self.entity_pad_id = entity_pad_id
         self.sample_k_candidates = sample_k_candidates
+        self.num_spans = num_spans
 
         self.dataset_path = dataset_path
         self.tokenizer = tokenizer
@@ -89,7 +91,13 @@ class BlinkCrossEncoderIterableDataset(IterableDataset):
         self.id2text = {entity.id: entity.desc for entity in entity_corpus.values()}
         self.entity_pad_id = entity_pad_id
 
+    def __len__(self):
+        return self.num_spans // self.config.train_batch_size
+
     def __iter__(self) -> Iterator[Tuple[Tensor, Tensor, Tensor]]:
+        tns_context_input = None
+        tns_label_input = None
+        tns_padding_masks = None
         with open(self.dataset_path, "r") as f:
             for line in f:
                 data = json.loads(line)
@@ -156,11 +164,29 @@ class BlinkCrossEncoderIterableDataset(IterableDataset):
                     context_input, candidate_input, self.config.max_seq_length
                 )
 
-                batch_num = len(context_input) // self.config.train_batch_size
-                for i in range(batch_num):
-                    start = i * self.config.train_batch_size
-                    end = (i + 1) * self.config.train_batch_size
-                    yield context_input[start:end], label_input[start:end], padding_masks[start:end]
+                if tns_context_input is None and tns_label_input is None and tns_padding_masks is None:
+                    tns_context_input = context_input
+                    tns_label_input = label_input
+                    tns_padding_masks = padding_masks
+                else:
+                    # Concatenate the data
+                    tns_context_input = torch.cat([tns_context_input, context_input], dim=0)
+                    tns_label_input = torch.cat([tns_label_input, label_input], dim=0)
+                    tns_padding_masks = torch.cat([tns_padding_masks, padding_masks], dim=0)
+
+                batch_num = len(tns_context_input) // self.config.train_batch_size
+                if batch_num > 0:
+                    for i in range(batch_num):
+                        start = i * self.config.train_batch_size
+                        end = (i + 1) * self.config.train_batch_size
+                        yield tns_context_input[start:end], tns_label_input[start:end], tns_padding_masks[start:end]
+                    # Remaining data
+                    tns_context_input = tns_context_input[end:]
+                    tns_label_input = tns_label_input[end:]
+                    tns_padding_masks = tns_padding_masks[end:]
+            # Yield the remaining data
+            if len(tns_context_input) > 0:
+                yield tns_context_input, tns_label_input, tns_padding_masks
 
 
 class BlinkCrossEncoder(EntityDisambiguationModel):

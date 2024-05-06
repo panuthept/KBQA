@@ -6,7 +6,8 @@ from tqdm import tqdm
 from typing import List
 from kbqa.utils.data_types import Doc
 from kbqa.utils.data_utils import get_entity_corpus
-from kbqa.entity_disembiguation.blink import BlinkCrossEncoder, BlinkCrossEncoderConfig
+from torch.utils.data import DataLoader
+from kbqa.entity_disembiguation.blink import BlinkCrossEncoder, BlinkCrossEncoderConfig, BlinkCrossEncoderIterableDataset
 
 
 logging.basicConfig(filename="./train_blink_crossencoder.log", filemode="w", level=logging.INFO)
@@ -51,9 +52,11 @@ if __name__ == "__main__":
     parser.add_argument("--train_dataset_path", type=str, required=True)
     parser.add_argument("--val_dataset_path", type=str, required=True)
     parser.add_argument("--entity_corpus_path", type=str, required=True)
-    parser.add_argument("--batch_size", type=int, default=4)
+    parser.add_argument("--num_train_epochs", type=int, default=1)
+    parser.add_argument("--batch_size", type=int, default=8)
+    parser.add_argument("--fp16", action="store_true")
     parser.add_argument("--model_output_path", type=str, default="./models/blink_crossencoder")
-    parser.add_argument("--train_on_chunks", action="store_true")
+    # parser.add_argument("--train_on_chunks", action="store_true")
     args = parser.parse_args()
 
     if torch.cuda.is_available():
@@ -72,39 +75,54 @@ if __name__ == "__main__":
     logger.info(f"Entities corpus size: {len(entity_corpus)}")
 
     config = BlinkCrossEncoderConfig(
-        bert_model="./data/entity_disembiguation/blink/crossencoder",
+        bert_model="./data/entity_disembiguation/blink/crossencoder_base",
         train_batch_size=args.batch_size,
-        num_train_epochs=2,
-        fp16=True,
+        num_train_epochs=args.num_train_epochs,
+        fp16=args.fp16,
     )
     model = BlinkCrossEncoder(entity_corpus, config)
 
-    if args.train_on_chunks:
-        len_train_data = 0
-        train_datasets_paths = sorted([os.path.join(args.train_dataset_path, file_name) for file_name in os.listdir(args.train_dataset_path) if file_name.endswith(".pt")])
-        for train_datasets_path in tqdm(train_datasets_paths, desc="Reading train chunks"):
-            train_dataset = torch.load(train_datasets_path)
-            len_train_data += len(train_dataset)
-        print(f"Number of train chunks: {len(train_datasets_paths)}\n{train_datasets_paths}")
-        logger.info(f"Number of train chunks: {len(train_datasets_paths)}\n{train_datasets_paths}")
-        print(f"Train dataset size: {len_train_data}")
-        logger.info(f"Train dataset size: {len_train_data}")
+    train_dataset = BlinkCrossEncoderIterableDataset(
+        args.train_dataset_path,
+        model.tokenizer,
+        entity_corpus,
+        config,
+    )
+    train_dataloader = DataLoader(train_dataset, batch_size=None, num_workers=0)
 
-        model.train_on_chunks(
-            train_datasets_paths=train_datasets_paths, 
-            val_docs=val_docs, 
-            batch_size=args.batch_size,
-            len_train_data=len_train_data, 
-            model_output_path=args.model_output_path
-        )
-    else:
-        train_docs: List[Doc] = read_dataset(args.train_dataset_path)
-        print(f"Train dataset size: {len(train_docs)}")
-        logger.info(f"Train dataset size: {len(train_docs)}")
+    model.train(
+        train_dataloader=train_dataloader, 
+        val_docs=val_docs, 
+        batch_size=args.batch_size,
+        model_output_path=args.model_output_path,
+    )
 
-        model.train(
-            train_docs=train_docs, 
-            val_docs=val_docs, 
-            batch_size=args.batch_size,
-            model_output_path=args.model_output_path
-        )
+    # if args.train_on_chunks:
+    #     len_train_data = 0
+    #     train_datasets_paths = sorted([os.path.join(args.train_dataset_path, file_name) for file_name in os.listdir(args.train_dataset_path) if file_name.endswith(".pt")])
+    #     for train_datasets_path in tqdm(train_datasets_paths, desc="Reading train chunks"):
+    #         train_dataset = torch.load(train_datasets_path)
+    #         len_train_data += len(train_dataset)
+    #     print(f"Number of train chunks: {len(train_datasets_paths)}\n{train_datasets_paths}")
+    #     logger.info(f"Number of train chunks: {len(train_datasets_paths)}\n{train_datasets_paths}")
+    #     print(f"Train dataset size: {len_train_data}")
+    #     logger.info(f"Train dataset size: {len_train_data}")
+
+    #     model.train_on_chunks(
+    #         train_datasets_paths=train_datasets_paths, 
+    #         val_docs=val_docs, 
+    #         batch_size=args.batch_size,
+    #         len_train_data=len_train_data, 
+    #         model_output_path=args.model_output_path
+    #     )
+    # else:
+    #     train_docs: List[Doc] = read_dataset(args.train_dataset_path)
+    #     print(f"Train dataset size: {len(train_docs)}")
+    #     logger.info(f"Train dataset size: {len(train_docs)}")
+
+    #     model.train(
+    #         train_docs=train_docs, 
+    #         val_docs=val_docs, 
+    #         batch_size=args.batch_size,
+    #         model_output_path=args.model_output_path
+    #     )
