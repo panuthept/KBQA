@@ -102,8 +102,8 @@ class BlinkCrossEncoderIterableDataset(IterableDataset):
                     mention = doc.text[span.start:span.start + span.length]
                     context_left = doc.text[:span.start]
                     context_right = doc.text[span.start + span.length:]
-                    
-                    if self.cand_entities is None:
+
+                    if span.cand_entities is None:
                         continue
 
                     in_kb_cand_ids = [entity.id if entity.id in self.id2title and entity.id in self.id2text else self.entity_pad_id for entity in span.cand_entities if entity.id != span.gold_entity.id]
