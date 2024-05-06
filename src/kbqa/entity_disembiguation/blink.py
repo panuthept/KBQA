@@ -98,7 +98,7 @@ class BlinkCrossEncoderIterableDataset(IterableDataset):
                 samples = []
                 labels = []
                 nns = []
-                for span in doc["spans"]:
+                for span in doc.spans:
                     mention = doc.text[span.start:span.start + span.length]
                     context_left = doc.text[:span.start]
                     context_right = doc.text[span.start + span.length:]
