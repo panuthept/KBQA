@@ -492,6 +492,10 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
         optimizer = get_optimizer(self.crossencoder.model, self.config.to_dict())
         scheduler = get_scheduler(self.config.to_dict(), optimizer, len_train_data, logger)
         scaler = GradScaler(growth_interval=10, enabled=self.config.fp16)
+        if scaler._enabled:
+            logger.info(f"GradScaler is enabled with growth_interval: {scaler._growth_interval}")
+        else:
+            logger.info("GradScaler is disabled")
 
         resume_epoch_idx = None
         resume_chunk_idx = None
