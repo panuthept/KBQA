@@ -38,9 +38,9 @@ def read_dataset(
             doc.spans = valid_spans
             spans_num += len(valid_spans)
 
-            docs.append(doc)
-            if max_samples and len(docs) >= max_samples:
-                break
+            # docs.append(doc)
+            # if max_samples and len(docs) >= max_samples:
+            #     break
     return docs, spans_num
 
 
