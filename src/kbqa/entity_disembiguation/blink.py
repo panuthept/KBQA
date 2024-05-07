@@ -76,7 +76,7 @@ class BlinkCrossEncoderIterableDataset(IterableDataset):
             config: BlinkCrossEncoderConfig,
             entity_pad_id: str = "Q0",
             sample_k_candidates: int = 5,
-            num_spans: int = 200000000,
+            num_spans: int = 129288148,
     ):
         self.config = config
         self.entity_pad_id = entity_pad_id
