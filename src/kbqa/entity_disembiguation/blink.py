@@ -491,7 +491,7 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
         # Prepare optimizer and sheduler
         optimizer = get_optimizer(self.crossencoder.model, self.config.to_dict())
         scheduler = get_scheduler(self.config.to_dict(), optimizer, len_train_data, logger)
-        scaler = GradScaler(growth_interval=10)
+        scaler = GradScaler(growth_interval=10, enabled=self.config.fp16)
 
         resume_epoch_idx = None
         resume_chunk_idx = None
