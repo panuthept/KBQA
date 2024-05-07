@@ -114,6 +114,9 @@ class BlinkCrossEncoderIterableDataset(IterableDataset):
                     context_left = doc.text[:span.start]
                     context_right = doc.text[span.start + span.length:]
 
+                    if span.gold_entity.id not in self.id2title or span.gold_entity.id not in self.id2text:
+                        continue
+
                     if span.cand_entities is None:
                         continue
 
