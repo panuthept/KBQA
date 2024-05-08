@@ -292,7 +292,9 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
         else:
             with torch.no_grad():
                 loss, logits = self.crossencoder(context_input, label_input, self.config.max_context_length)
-        logits = torch.where(padding_masks, logits, torch.tensor(-1e9).to(self.device))
+            # Ensure padding_masks is boolean
+            padding_masks = padding_masks.bool()
+            logits = torch.where(padding_masks, logits, torch.tensor(-1e9).to(self.device))
         return loss, logits
     
     def __call__(
