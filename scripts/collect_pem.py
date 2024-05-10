@@ -4,7 +4,7 @@ from collections import defaultdict
 
 
 if __name__ == "__main__":
-    pem = defaultdict(int)
+    pem = defaultdict(lambda: defaultdict(int))
     with open("./data/datasets/wikipedia/training_dataset.jsonl", "r") as f:
         for line in tqdm(f, total=6185825):
             sample = json.loads(line)
@@ -12,7 +12,8 @@ if __name__ == "__main__":
             for span in sample["spans"]:
                 assert span["surface_form"] == text[span["start"]:span["start"] + span["length"]], f"Surface form mismatch: {span['surface_form']} != {text[span['start']:span['start'] + span['length']]}"
                 surface_form = text[span["start"]:span["start"] + span["length"]].lower()
-                pem[surface_form] += 1
+                qcode = span["gold_entity_id"]
+                pem[surface_form][qcode] += 1
     print(f"PEM: {len(pem)}")
     with open("./data/pem.json", "w") as f:
         json.dump(pem, f, indent=4)
