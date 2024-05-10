@@ -11,7 +11,7 @@ if __name__ == "__main__":
             text = sample["text"]
             for span in sample["spans"]:
                 assert span["surface_form"] == text[span["start"]:span["start"] + span["length"]], f"Surface form mismatch: {span['surface_form']} != {text[span['start']:span['start'] + span['length']]}"
-                surface_form = text[span["start"]:span["start"] + span["length"]]
+                surface_form = text[span["start"]:span["start"] + span["length"]].lower()
                 pem[surface_form] += 1
     print(f"PEM: {len(pem)}")
     with open("./data/pem.json", "w") as f:
