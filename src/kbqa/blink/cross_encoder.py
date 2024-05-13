@@ -15,7 +15,6 @@ from torch.cuda.amp import autocast, GradScaler
 from typing import Tuple, List, Dict, Any, Iterator
 from torch.utils.data import Dataset, IterableDataset
 from kbqa.utils.blink_utils.candidate_ranking import utils
-from kbqa.utils.blink_utils.biencoder.biencoder import BiEncoderRanker
 from kbqa.entity_disembiguation.base_class import EntityDisambiguationModel
 from kbqa.utils.blink_utils.crossencoder.crossencoder import CrossEncoderRanker
 from kbqa.utils.blink_utils.crossencoder.data_process import prepare_crossencoder_data
@@ -656,22 +655,6 @@ class BlinkCrossEncoderCFT(BlinkCrossEncoder):
                 loss, logits = self.crossencoder(context_input, label_input, self.config.max_context_length)
         logits = torch.where(padding_masks, logits, torch.tensor(-1e9).to(self.device))
         return loss, logits
-
-
-# class BlinkBiencoder(EntityDisambiguationModel):
-#     def __init__(
-#             self, 
-#             entity_corpus: Dict[str, Any], 
-#             config: Dict[str, Any], 
-#             checkpoint_path: str=None
-#     ):
-#         config["path_to_model"] = checkpoint_path
-#         self.biencoder = BiEncoderRanker(config)
-#         self.tokenizer = self.biencoder.tokenizer
-#         self.entity_corpus = entity_corpus
-
-#     def __call__(self, docs: List[Doc]):
-#         samples = preprocess_docs(docs)
 
 
 if __name__ == "__main__":
