@@ -287,10 +287,6 @@ class BlinkCrossEncoder(EntityDisambiguationModel):
     ) -> Tuple[Tensor, Tensor]:
         batch = tuple(t.to(self.device) for t in batch)
         context_input, label_input, padding_masks = batch
-        print(context_input.device)
-        print(label_input.device)
-        print(padding_masks.device)
-        print(self.crossencoder.device)
         if is_training:
             loss, logits = self.crossencoder(context_input, label_input, self.config.max_context_length)
         else:

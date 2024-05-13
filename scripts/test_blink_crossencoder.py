@@ -75,6 +75,7 @@ if __name__ == "__main__":
     config = BlinkCrossEncoderConfig.from_dict(json.load(open("crossencoder_wiki_large.json")))
     config.path_to_model = "./crossencoder_wiki_large.bin"
     config.bert_model = "./data/entity_disembiguation/blink/crossencoder_large"
+    config.no_cuda = False
     model = BlinkCrossEncoder(entity_corpus, config)
 
     for dataset_path in eval_dataset_paths:
