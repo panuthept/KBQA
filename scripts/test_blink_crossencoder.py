@@ -72,6 +72,10 @@ if __name__ == "__main__":
     entity_corpus = get_entity_corpus("./data/entity_corpus.jsonl")
     print(f"Entities corpus size: {len(entity_corpus)}")
 
+    config = BlinkCrossEncoderConfig.from_dict(json.load(open("crossencoder_wiki_large.json")))
+    config.path_to_model = "./crossencoder_wiki_large.bin"
+    model = BlinkCrossEncoder(entity_corpus, config)
+
     for dataset_path in eval_dataset_paths:
         for split in splits:
             print(f"Dataset name: {dataset_path.split('/')[-1]}{split}")
@@ -82,10 +86,6 @@ if __name__ == "__main__":
 
             metrics = CGMetrics(docs)
             metrics.summary(k=30)
-
-            config = BlinkCrossEncoderConfig.from_dict(json.load(open("crossencoder_wiki_large.json")))
-            config.path_to_model = "./crossencoder_wiki_large.bin"
-            model = BlinkCrossEncoder(entity_corpus, config)
 
             metrics = model.eval(docs)
             metrics.summary()
