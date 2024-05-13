@@ -21,6 +21,8 @@ def read_dataset(
                 continue
             spans = []
             for span in sample["gold_spans"]:
+                if not span["is_eval"]:
+                    continue
                 spans.append(
                     Span(
                         start=span["start"],
@@ -89,6 +91,6 @@ if __name__ == "__main__":
             metrics = CGMetrics(docs)
             metrics.summary(k=30)
 
-            metrics = model.eval(docs)
+            metrics = model.eval(docs, verbose=True)
             metrics.summary()
             print("-" * 100)
