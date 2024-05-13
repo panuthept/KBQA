@@ -92,5 +92,4 @@ if __name__ == "__main__":
             metrics.summary(k=30)
 
             metrics = model.eval(docs, batch_size=48, verbose=True)
-            metrics.summary()
             print("-" * 100)
