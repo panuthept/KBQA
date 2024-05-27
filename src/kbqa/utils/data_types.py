@@ -12,15 +12,15 @@ class Entity:
 
     def __repr__(self) -> str:
         string = f"Entity(id={self.id}"
-        if self.name:
+        if self.name is not None:
             string += f", name={self.name}"
-        if self.aliases:
+        if self.aliases is not None:
             string += f", aliases={self.aliases}"
-        if self.desc:
+        if self.desc is not None:
             string += f", desc={self.desc}"
-        if self.type:
+        if self.type is not None:
             string += f", type={self.type}"
-        if self.score:
+        if self.score is not None:
             string += f", score={round(self.score, 3)}"
         return string + ")"
     

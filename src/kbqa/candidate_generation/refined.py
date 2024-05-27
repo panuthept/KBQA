@@ -6,7 +6,7 @@ from typing import Tuple, Dict, List
 from kbqa.utils.data_types import Doc, Entity
 from kbqa.utils.refined_utils.loaders import load_human_qcode
 from kbqa.utils.refined_utils.lmdb_wrapper import LmdbImmutableDict
-from kbqa.entity_candidate_generation.base_class import EntityCandidateGenerationModel
+from kbqa.candidate_generation.base_class import EntityCandidateGenerationModel
 
 
 def unique(func, iterable):
@@ -105,7 +105,7 @@ class ReFinEDCandidateGenerator(EntityCandidateGenerationModel):
             for doc in pred_docs:
                 for span in doc.spans:
                     self.get_candidates(span.surface_form, person_coreference)
-        for doc in tqdm(pred_docs, desc="Generating candidates...", disable=not verbose):
+        for doc in tqdm(pred_docs, desc="Generating candidates", unit="doc", disable=not verbose):
             for span in doc.spans:
                 cands = self.get_candidates(span.surface_form, person_coreference)
                 if include_gold_entity and span.gold_entity:

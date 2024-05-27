@@ -1,7 +1,7 @@
 import json
 from tqdm import tqdm
 from kbqa.utils.data_types import Doc, Span, Entity
-from kbqa.entity_candidate_generation.refined import ReFinEDCandidateGenerator
+from kbqa.candidate_generation.refined import ReFinEDCandidateGenerator
 
 
 if __name__ == "__main__":

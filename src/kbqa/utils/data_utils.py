@@ -6,7 +6,7 @@ def get_entity_corpus(path: str, entity_pad_id: str = "Q0") -> dict:
     with open(path, "r") as f:
         entities = [Entity(**json.loads(line)) for line in f]
         entities = entities + [Entity(id=entity_pad_id)]
-    return {entity.id: entity for entity in entities}
+    return {i: entity for i, entity in enumerate(entities)}
 
 
 if __name__ == "__main__":
